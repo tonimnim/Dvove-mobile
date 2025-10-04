@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/providers/notification_provider.dart';
 import 'features/posts/providers/posts_provider.dart';
@@ -7,8 +8,17 @@ import 'features/auth/screens/splash_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
 import 'features/chat/screens/conversations_list_screen.dart';
 import 'core/services/intelligent_cache_service.dart';
+import 'core/services/fcm_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
+  // Initialize FCM
+  await FcmService.instance.initialize();
+
   // Initialize memory-safe caching system
   IntelligentCacheService.instance.initialize();
 

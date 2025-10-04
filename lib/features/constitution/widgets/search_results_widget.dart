@@ -33,19 +33,11 @@ class SearchResultsWidget extends StatelessWidget {
         ),
 
         // Search results list
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: results.length,
-          itemBuilder: (context, index) {
-            final result = results[index];
-            return SearchResultCard(
-              result: result,
-              query: query,
-              onTap: () => onResultTap(result.rawId),
-            );
-          },
-        ),
+        ...results.map((result) => SearchResultCard(
+          result: result,
+          query: query,
+          onTap: () => onResultTap(result.rawId),
+        )),
       ],
     );
   }

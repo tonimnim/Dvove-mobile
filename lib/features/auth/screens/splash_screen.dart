@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import '../../posts/screens/home_screen.dart';
+import '../../../core/services/fcm_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,6 +29,13 @@ class _SplashScreenState extends State<SplashScreen> {
     // Check authentication status
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.initializeAuth();
+
+    if (!mounted) return;
+
+    // Register FCM token if user is already authenticated
+    if (authProvider.isAuthenticated) {
+      await FcmService.instance.registerToken(authProvider);
+    }
 
     if (!mounted) return;
 

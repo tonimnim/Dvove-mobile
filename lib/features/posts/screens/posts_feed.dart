@@ -16,13 +16,18 @@ class PostsFeed extends StatefulWidget {
   State<PostsFeed> createState() => _PostsFeedState();
 }
 
-class _PostsFeedState extends State<PostsFeed> {
+class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
+  String? _lastPostType;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _lastPostType = widget.postType;
 
     // Schedule initialization after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -48,6 +53,16 @@ class _PostsFeedState extends State<PostsFeed> {
 
       _initializeFeed();
     });
+  }
+
+  @override
+  void didUpdateWidget(PostsFeed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-initialize feed when postType changes
+    if (oldWidget.postType != widget.postType) {
+      _lastPostType = widget.postType;
+      _initializeFeed();
+    }
   }
 
 
@@ -89,6 +104,7 @@ class _PostsFeedState extends State<PostsFeed> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     // Use the global provider
     return Consumer<PostsProvider>(
       builder: (context, postsProvider, child) {
@@ -161,10 +177,14 @@ class _PostsFeedState extends State<PostsFeed> {
     );
   }
 
+  // Static colors to avoid rebuilding
+  static final _shimmerBaseColor = Colors.grey.shade300;
+  static final _shimmerHighlightColor = Colors.grey.shade100;
+
   Widget _buildShimmerLoading() {
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: _shimmerBaseColor,
+      highlightColor: _shimmerHighlightColor,
       child: ListView.builder(
         padding: EdgeInsets.zero,
         itemCount: 5,
@@ -256,6 +276,12 @@ class _PostsFeedState extends State<PostsFeed> {
     );
   }
 
+  // Static colors for states
+  static final _errorIconColor = Colors.grey.shade400;
+  static final _errorTitleColor = Colors.grey.shade700;
+  static final _errorMessageColor = Colors.grey.shade600;
+  static final _emptyIconColor = Colors.grey.shade300;
+
   Widget _buildErrorState(String message) {
     return Center(
       child: Padding(
@@ -266,7 +292,7 @@ class _PostsFeedState extends State<PostsFeed> {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.grey.shade400,
+              color: _errorIconColor,
             ),
             const SizedBox(height: 16),
             Text(
@@ -274,7 +300,7 @@ class _PostsFeedState extends State<PostsFeed> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: _errorTitleColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -283,7 +309,7 @@ class _PostsFeedState extends State<PostsFeed> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade600,
+                color: _errorMessageColor,
               ),
             ),
             const SizedBox(height: 24),
@@ -316,7 +342,7 @@ class _PostsFeedState extends State<PostsFeed> {
             Icon(
               Icons.article_outlined,
               size: 80,
-              color: Colors.grey.shade300,
+              color: _emptyIconColor,
             ),
             const SizedBox(height: 24),
             Text(
@@ -324,7 +350,7 @@ class _PostsFeedState extends State<PostsFeed> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: _errorTitleColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -333,7 +359,7 @@ class _PostsFeedState extends State<PostsFeed> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade600,
+                color: _errorMessageColor,
               ),
             ),
             const SizedBox(height: 32),
@@ -352,12 +378,13 @@ class _PostsFeedState extends State<PostsFeed> {
   }
 
   Widget _buildLoadingIndicator() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      alignment: Alignment.center,
-      child: const CircularProgressIndicator(
-        strokeWidth: 2,
-        color: Colors.black,
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.black,
+        ),
       ),
     );
   }

@@ -54,17 +54,23 @@ dependencies:
   # Database
   sqflite: ^2.3.0
   path: ^1.8.3
+  path_provider: ^2.1.1
 
   # Features
   intl: ^0.18.1
   timeago: ^3.5.0
   share_plus: ^7.2.1
   url_launcher: ^6.1.14
+  in_app_review: ^2.0.9
   image_picker: ^1.2.0
   image: ^4.0.17
   any_link_preview: ^3.0.2
   flutter_linkify: ^6.0.0
   package_info_plus: ^9.0.0
+
+  # Firebase
+  firebase_core: ^3.10.0
+  firebase_messaging: ^15.1.6
 
 dev_dependencies:
   flutter_test:

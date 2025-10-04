@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../features/auth/models/user.dart';
 import '../../core/config/app_config.dart';
 
@@ -43,20 +44,15 @@ class UserAvatar extends StatelessWidget {
         radius: radius,
         backgroundColor: Colors.grey.shade300,
         child: ClipOval(
-          child: Image.network(
-            AppConfig.fixMediaUrl(user!.profilePhoto!),
+          child: CachedNetworkImage(
+            imageUrl: AppConfig.fixMediaUrl(user!.profilePhoto!),
             width: radius * 2,
             height: radius * 2,
-            cacheWidth: (radius * 2 * 3.5).round(),
-            cacheHeight: (radius * 2 * 3.5).round(),
+            memCacheWidth: (radius * 2 * 3.5).round(),
+            memCacheHeight: (radius * 2 * 3.5).round(),
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildInitialsText();
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return _buildInitialsText();
-            },
+            placeholder: (context, url) => _buildInitialsText(),
+            errorWidget: (context, url, error) => _buildInitialsText(),
           ),
         ),
       );

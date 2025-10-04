@@ -8,6 +8,7 @@ import '../providers/posts_provider.dart';
 import '../services/posts_service.dart';
 import '../widgets/create_post/post_type_selector.dart';
 import '../widgets/create_post/post_content_composer.dart';
+import '../../../core/utils/image_compression.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final Post? postToEdit;
@@ -208,12 +209,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final List<XFile> images = await _imagePicker.pickMultiImage();
 
     if (images.isNotEmpty) {
+      // Convert XFile to File
+      final List<File> imageFiles = images
+          .take(4 - _selectedImages.length)
+          .map((xFile) => File(xFile.path))
+          .toList();
+
+      // Compress images in parallel (efficient, no rebuilds)
+      final List<File> compressedImages = await ImageCompression.compressImages(imageFiles);
+
+      // Single setState call to avoid multiple rebuilds
       setState(() {
-        for (var image in images) {
-          if (_selectedImages.length < 4) {
-            _selectedImages.add(File(image.path));
-          }
-        }
+        _selectedImages.addAll(compressedImages);
       });
     }
   }

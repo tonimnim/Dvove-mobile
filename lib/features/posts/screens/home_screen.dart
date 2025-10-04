@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:in_app_review/in_app_review.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../models/post.dart';
@@ -17,6 +19,7 @@ import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../constitution/screens/constitution_screen.dart';
 import '../../../core/utils/constants.dart';
+import '../../profile/widgets/subscription_list_tile.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late List<Widget> _pages;
 
+  // Static decorations to avoid rebuilding on every setState
+  static final _bottomNavBorderColor = Colors.grey.shade300;
+  static final _bottomNavShadowColor = Colors.grey.withOpacity(0.1);
+  static final _unselectedItemColor = Colors.grey.shade600;
+
   @override
   void initState() {
     super.initState();
@@ -42,9 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
       notificationProvider.loadUnreadCount();
     });
     _pages = [
-      const PostsFeed(key: ValueKey('home_feed')), // Home
+      PostsFeed(key: ValueKey('home_feed')), // Home
       const SearchTab(), // Search
-      const PostsFeed(key: ValueKey('jobs_feed'), postType: 'job'), // Jobs
+      PostsFeed(key: ValueKey('jobs_feed'), postType: 'job'), // Jobs
       const ConstitutionScreen(), // Constitution
       const ChatScreen(), // Dvove AI
     ];
@@ -221,6 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icons.add,
                             color: Colors.black,
                             size: 20,
+                            weight: 700,
                           ),
                           onPressed: () async {
                             try {
@@ -239,6 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             IconData(0xf102, fontFamily: 'MaterialIcons'),
                             color: Colors.black,
                             size: 20,
+                            weight: 700,
                           ),
                           onPressed: () async {
                             final selectedConversation = await Navigator.pushNamed(context, '/conversations');
@@ -364,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Divider(),
                     ListTile(
                       leading: const Icon(Icons.person_outline, color: Colors.black),
-                      title: const Text('Profile', style: TextStyle(fontSize: 16)),
+                      title: const Text('Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
@@ -375,58 +385,42 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                     ),
-                    if (user?.role == 'official') ...[
-                      ListTile(
-                        leading: const Icon(Icons.star_outline, color: Colors.black),
-                        title: const Text('Subscription', style: TextStyle(fontSize: 16)),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'Premium',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.orange.shade800,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          // TODO: Navigate to Subscription screen
-                        },
+                    if (user?.role == 'official' && user?.phoneNumber != null) ...[
+                      SubscriptionListTile(
+                        phoneNumber: user!.phoneNumber!,
+                        hasActiveSubscription: user.hasActiveSubscription,
                       ),
                     ],
                     ListTile(
                       leading: const Icon(Icons.notifications_outlined, color: Colors.black),
-                      title: const Text('Notifications', style: TextStyle(fontSize: 16)),
+                      title: const Text('Notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(context);
                         _showComingSoonSnackBar('Notifications');
                       },
                     ),
                     ListTile(
-                      leading: const Icon(Icons.emergency_outlined, color: Colors.black),
-                      title: const Text('Emergency Contacts', style: TextStyle(fontSize: 16)),
+                      leading: const Icon(Icons.share_outlined, color: Colors.black),
+                      title: const Text('Share App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(context);
-                        _showComingSoonSnackBar('Emergency Contacts');
+                        Share.share('Check out Dvove - Your County Connection! Download now: https://play.google.com/store/apps/details?id=com.dvove.county_connect');
                       },
                     ),
                     ListTile(
-                      leading: const Icon(Icons.settings_outlined, color: Colors.black),
-                      title: const Text('Settings', style: TextStyle(fontSize: 16)),
-                      onTap: () {
+                      leading: const Icon(Icons.star_border, color: Colors.black),
+                      title: const Text('Rate App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      onTap: () async {
                         Navigator.pop(context);
-                        // TODO: Navigate to Settings screen
+                        final InAppReview inAppReview = InAppReview.instance;
+                        if (await inAppReview.isAvailable()) {
+                          inAppReview.requestReview();
+                        }
                       },
                     ),
                     ListTile(
                       leading: const Icon(Icons.description_outlined, color: Colors.black),
-                      title: const Text('Terms of Use', style: TextStyle(fontSize: 16)),
+                      title: const Text('Terms of Use', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       onTap: () async {
                         Navigator.pop(context);
                         final uri = Uri.parse('https://dvove.com/terms-of-use');
@@ -437,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black),
-                      title: const Text('Privacy Policy', style: TextStyle(fontSize: 16)),
+                      title: const Text('Privacy Policy', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       onTap: () async {
                         Navigator.pop(context);
                         final uri = Uri.parse('https://dvove.com/privacy-policy');
@@ -450,7 +444,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Divider(),
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.black),
-                      title: const Text('Logout', style: TextStyle(fontSize: 16)),
+                      title: const Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       trailing: FutureBuilder<String>(
                         future: _getAppVersion(),
                         builder: (context, snapshot) {
@@ -506,13 +500,13 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.white,
           border: Border(
             top: BorderSide(
-              color: Colors.grey.shade300,
+              color: _bottomNavBorderColor,
               width: 1.0,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: _bottomNavShadowColor,
               spreadRadius: 0,
               blurRadius: 8,
               offset: const Offset(0, -2),
@@ -529,7 +523,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           backgroundColor: Colors.white,
           selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.grey.shade600,
+          unselectedItemColor: _unselectedItemColor,
           elevation: 0,
           enableFeedback: false,
           selectedFontSize: 0,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/profile_service.dart';
 import '../../auth/models/user.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -200,38 +201,33 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
           width: widget.radius * 2,
           height: widget.radius * 2,
           color: Colors.grey.shade300,
-          child: Image.network(
-            AppConfig.fixMediaUrl(widget.user.profilePhoto!),
+          child: CachedNetworkImage(
+            imageUrl: AppConfig.fixMediaUrl(widget.user.profilePhoto!),
             width: widget.radius * 2,
             height: widget.radius * 2,
-            cacheWidth: (widget.radius * 2 * 3.5).round(), // Cache at display resolution
-            cacheHeight: (widget.radius * 2 * 3.5).round(),
+            memCacheWidth: (widget.radius * 2 * 3.5).round(),
+            memCacheHeight: (widget.radius * 2 * 3.5).round(),
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Center(
-                child: Text(
-                  widget.user.displayName.substring(0, 1).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: widget.radius * 0.6,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
+            placeholder: (context, url) => Center(
+              child: Text(
+                widget.user.displayName.substring(0, 1).toUpperCase(),
+                style: TextStyle(
+                  fontSize: widget.radius * 0.6,
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
                 ),
-              );
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Center(
-                child: Text(
-                  widget.user.displayName.substring(0, 1).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: widget.radius * 0.6,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ),
+            ),
+            errorWidget: (context, url, error) => Center(
+              child: Text(
+                widget.user.displayName.substring(0, 1).toUpperCase(),
+                style: TextStyle(
+                  fontSize: widget.radius * 0.6,
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ),
       );
