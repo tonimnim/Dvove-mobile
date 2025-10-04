@@ -57,7 +57,6 @@ class SearchStorage {
 
       return validSearches;
     } catch (e) {
-      print('[SearchStorage] Error loading recent searches: $e');
       return [];
     }
   }

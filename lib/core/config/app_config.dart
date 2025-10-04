@@ -26,10 +26,6 @@ class AppConfig {
 
   // Fix URLs to ensure they use the correct domain
   static String fixMediaUrl(String url) {
-    if (enableDebugLogging) {
-      print('[AppConfig] Processing URL: $url');
-    }
-
     // Handle relative storage paths
     if (url.startsWith('/storage/')) {
       return '$apiBaseUrl$url';
@@ -47,10 +43,6 @@ class AppConfig {
     // If already using dvove.com, return as-is
     if (url.contains('dvove.com')) {
       return url;
-    }
-
-    if (enableDebugLogging) {
-      print('[AppConfig] Final URL: $url');
     }
 
     return url;

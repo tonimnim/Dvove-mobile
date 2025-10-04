@@ -22,7 +22,6 @@ class _PostsFeedState extends State<PostsFeed> {
   @override
   void initState() {
     super.initState();
-    print('[PostsFeed] 🎬 initState called for postType: ${widget.postType ?? "all"}');
     _scrollController.addListener(_onScroll);
 
     // Schedule initialization after build
@@ -56,15 +55,11 @@ class _PostsFeedState extends State<PostsFeed> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final postsProvider = Provider.of<PostsProvider>(context, listen: false);
 
-    print('[PostsFeed] 📡 Loading feed for postType: ${widget.postType ?? "all"}, countyId: ${authProvider.user?.countyId}');
-
     // Load posts for user's county
     await postsProvider.initializeFeed(
       countyId: authProvider.user?.countyId,
       type: widget.postType,
     );
-
-    print('[PostsFeed] ✅ Feed loaded successfully');
   }
 
   void _onScroll() {
@@ -105,7 +100,6 @@ class _PostsFeedState extends State<PostsFeed> {
           allPosts = allPosts.where((post) =>
             post.isAd || post.type == widget.postType
           ).toList();
-          print('[PostsFeed] 📊 Filtered ${allPosts.length} posts for type: ${widget.postType}');
         }
 
         final displayPosts = allPosts;
@@ -370,7 +364,6 @@ class _PostsFeedState extends State<PostsFeed> {
 
   @override
   void dispose() {
-    print('[PostsFeed] 🛑 dispose called for postType: ${widget.postType ?? "all"} (should NOT happen on tab switch with IndexedStack)');
     _scrollController.dispose();
     // Reset ad tracking when leaving the feed
     AdTrackingService.resetTracking();

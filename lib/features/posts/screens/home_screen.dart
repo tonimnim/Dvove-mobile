@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../models/post.dart';
@@ -13,6 +15,8 @@ import '../../../shared/widgets/user_avatar.dart';
 import '../../../shared/widgets/notification_badge.dart';
 import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/screens/notifications_screen.dart';
+import '../../constitution/screens/constitution_screen.dart';
+import '../../../core/utils/constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,17 +42,17 @@ class _HomeScreenState extends State<HomeScreen> {
       notificationProvider.loadUnreadCount();
     });
     _pages = [
-      const PostsFeed(key: ValueKey('home_feed')),
+      const PostsFeed(key: ValueKey('home_feed')), // Home
       const SearchTab(), // Search
-      const PostsFeed(key: ValueKey('jobs_feed'), postType: 'job'),
+      const PostsFeed(key: ValueKey('jobs_feed'), postType: 'job'), // Jobs
+      const ConstitutionScreen(), // Constitution
       const ChatScreen(), // Dvove AI
-      const NotificationsScreen(), // Notifications
     ];
   }
 
   Future<void> _createNewConversation() async {
     setState(() {
-      _pages[3] = ChatScreen(
+      _pages[4] = ChatScreen(
         key: ValueKey('new_${DateTime.now().millisecondsSinceEpoch}'),
       );
     });
@@ -56,11 +60,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadConversation(String sessionId) async {
     setState(() {
-      _pages[3] = ChatScreen(
+      _pages[4] = ChatScreen(
         key: ValueKey('session_$sessionId'),
         sessionId: sessionId,
       );
     });
+  }
+
+  Future<String> _getAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    return packageInfo.version;
   }
 
   void _showComingSoonSnackBar(String feature) {
@@ -106,19 +115,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 bottom: false,
                 child: Row(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: UserAvatar(
-                        user: user,
-                        radius: 18,
-                        onTap: () {
-                          _scaffoldKey.currentState?.openDrawer();
-                        },
+                    if (_selectedIndex != 3) // Hide avatar on Constitution tab
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: UserAvatar(
+                          user: user,
+                          radius: 18,
+                          onTap: () {
+                            _scaffoldKey.currentState?.openDrawer();
+                          },
+                        ),
                       ),
-                    ),
+                    if (_selectedIndex == 3) const SizedBox(width: 12), // Padding when avatar hidden
                     Expanded(
                       child: Center(
-                        child: _selectedIndex == 3
+                        child: _selectedIndex == 4
                           ? const Text(
                               'Dvove AI',
                               style: TextStyle(
@@ -128,19 +139,45 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.black,
                               ),
                             )
-                          : _selectedIndex == 2
-                              ? const Text(
-                                  'Dvove Jobs',
-                                  style: TextStyle(
-                                    fontFamily: 'Chirp',
-                                    fontSize: 21,
-                                    fontWeight: FontWeight.w400,
-                                    color: Colors.black,
-                                  ),
+                          : _selectedIndex == 3
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Katiba',
+                                      style: TextStyle(
+                                        fontFamily: 'Chirp',
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const Text(
+                                      '360',
+                                      style: TextStyle(
+                                        fontFamily: 'Chirp',
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    Transform.translate(
+                                      offset: const Offset(0, -4),
+                                      child: const Text(
+                                        '°',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w400,
+                                          color: Color(0xFFBE0027), // Kenyan flag red
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 )
-                              : _selectedIndex == 4
+                              : _selectedIndex == 2
                                   ? const Text(
-                                      'Notifications',
+                                      'Dvove Jobs',
                                       style: TextStyle(
                                         fontFamily: 'Chirp',
                                         fontSize: 21,
@@ -175,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                       ),
                     ),
-                  if (_selectedIndex == 3) // Only show on AI tab
+                  if (_selectedIndex == 4) // AI tab: show new chat + history icons
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -187,7 +224,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           onPressed: () async {
                             try {
-                              // Create new conversation via backend
                               await _createNewConversation();
                             } catch (e) {
                               if (mounted) {
@@ -207,14 +243,72 @@ class _HomeScreenState extends State<HomeScreen> {
                           onPressed: () async {
                             final selectedConversation = await Navigator.pushNamed(context, '/conversations');
                             if (selectedConversation != null && selectedConversation is Map<String, String>) {
-                              // Load the selected conversation
                               await _loadConversation(selectedConversation['id']!);
                             }
                           },
                         ),
                       ],
                     ),
-                  if (_selectedIndex != 3) const SizedBox(width: 48),
+                  if (_selectedIndex == 0) // Home feed: show notification bell
+                    Consumer<NotificationProvider>(
+                      builder: (context, notificationProvider, child) {
+                        return Stack(
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.notifications_outlined,
+                                color: Colors.black,
+                                size: 24,
+                              ),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => Scaffold(
+                                      appBar: AppBar(
+                                        title: const Text('Notifications'),
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: Colors.black,
+                                        elevation: 0,
+                                      ),
+                                      body: const NotificationsScreen(),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (notificationProvider.unreadCount > 0)
+                              Positioned(
+                                right: 8,
+                                top: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  child: Text(
+                                    notificationProvider.unreadCount > 9
+                                        ? '9+'
+                                        : notificationProvider.unreadCount.toString(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  if (_selectedIndex != 4 && _selectedIndex != 0) const SizedBox(width: 48),
                 ],
               ),
             ),
@@ -331,19 +425,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                     ListTile(
-                      leading: const Icon(Icons.help_outline, color: Colors.black),
-                      title: const Text('Help & Support', style: TextStyle(fontSize: 16)),
-                      onTap: () {
+                      leading: const Icon(Icons.description_outlined, color: Colors.black),
+                      title: const Text('Terms of Use', style: TextStyle(fontSize: 16)),
+                      onTap: () async {
                         Navigator.pop(context);
-                        // TODO: Navigate to Help & Support screen
+                        final uri = Uri.parse('https://dvove.com/terms-of-use');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
                       },
                     ),
                     ListTile(
                       leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black),
                       title: const Text('Privacy Policy', style: TextStyle(fontSize: 16)),
-                      onTap: () {
+                      onTap: () async {
                         Navigator.pop(context);
-                        // TODO: Navigate to Privacy Policy screen
+                        final uri = Uri.parse('https://dvove.com/privacy-policy');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
                       },
                     ),
                     Expanded(child: Container()),
@@ -351,6 +451,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.black),
                       title: const Text('Logout', style: TextStyle(fontSize: 16)),
+                      trailing: FutureBuilder<String>(
+                        future: _getAppVersion(),
+                        builder: (context, snapshot) {
+                          return Text(
+                            'v${snapshot.data ?? '...'}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          );
+                        },
+                      ),
                       onTap: () async {
                         await authProvider.logout();
                         if (mounted) {
@@ -411,7 +523,6 @@ class _HomeScreenState extends State<HomeScreen> {
           type: BottomNavigationBarType.fixed,
           currentIndex: _selectedIndex,
           onTap: (index) {
-            print('[HomeScreen] 🔄 Tab switch: $_selectedIndex → $index (IndexedStack keeps widgets alive)');
             setState(() {
               _selectedIndex = index;
             });
@@ -425,44 +536,30 @@ class _HomeScreenState extends State<HomeScreen> {
           unselectedFontSize: 0,
           showSelectedLabels: false,
           showUnselectedLabels: false,
-          items: [
-            const BottomNavigationBarItem(
+          items: const [
+            BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home),
               label: '',
             ),
-            const BottomNavigationBarItem(
+            BottomNavigationBarItem(
               icon: Icon(Icons.search),
               activeIcon: Icon(Icons.search),
               label: '',
             ),
-            const BottomNavigationBarItem(
+            BottomNavigationBarItem(
               icon: Icon(Icons.work_outline),
               activeIcon: Icon(Icons.work),
               label: '',
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.smart_toy_outlined),
-              activeIcon: Icon(Icons.smart_toy),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.gavel_outlined),
+              activeIcon: Icon(Icons.gavel),
               label: '',
             ),
             BottomNavigationBarItem(
-              icon: Consumer<NotificationProvider>(
-                builder: (context, notificationProvider, child) {
-                  return NotificationBadge(
-                    count: notificationProvider.unreadCount,
-                    child: const Icon(Icons.notifications_outlined),
-                  );
-                },
-              ),
-              activeIcon: Consumer<NotificationProvider>(
-                builder: (context, notificationProvider, child) {
-                  return NotificationBadge(
-                    count: notificationProvider.unreadCount,
-                    child: const Icon(Icons.notifications),
-                  );
-                },
-              ),
+              icon: Icon(Icons.smart_toy_outlined),
+              activeIcon: Icon(Icons.smart_toy),
               label: '',
             ),
           ],

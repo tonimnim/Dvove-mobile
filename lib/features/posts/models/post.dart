@@ -3,7 +3,7 @@ import '../../auth/models/user.dart';
 import '../../../core/config/app_config.dart';
 
 class Post {
-  final int id;
+  final String id; // Changed to String to handle both "ad_1" and "1"
   final String? content;
   final String type; // announcement, job, event, alert
   final List<String> mediaUrls;
@@ -62,36 +62,66 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
+    final itemType = json['item_type'];
+    final isAd = itemType == 'ad';
+
     // Extract media URLs from the new API structure
     List<String> mediaUrls = [];
-    if (json['media'] != null) {
-      final media = json['media'];
 
-      // Handle images only (videos removed for MVP)
-      if (media['images'] != null) {
-        final images = List<String>.from(media['images'])
-            .map((url) => AppConfig.fixMediaUrl(url))
-            .toList();
-        mediaUrls.addAll(images);
+    if (isAd) {
+      // Ads have a 'media' array with direct image objects
+      if (json['image_url'] != null) {
+        mediaUrls.add(AppConfig.fixMediaUrl(json['image_url']));
+      }
+    } else {
+      // Posts have a 'media' object with images array
+      if (json['media'] != null) {
+        final media = json['media'];
+        // Handle images only (videos removed for MVP)
+        if (media['images'] != null) {
+          final images = List<String>.from(media['images'])
+              .map((url) => AppConfig.fixMediaUrl(url))
+              .toList();
+          mediaUrls.addAll(images);
+        }
       }
     }
 
-    // Extract stats
+    // Extract stats (posts have stats, ads don't)
     final stats = json['stats'] ?? {};
 
+    // Handle author differently for ads vs posts
+    final PostAuthor author;
+    if (isAd && json['user'] != null) {
+      // Ads have a 'user' field instead of 'author'
+      final user = json['user'];
+      author = PostAuthor(
+        id: user['id'] ?? 0,
+        name: user['official_name'] ?? user['username'] ?? 'Advertiser',
+        profilePhoto: user['profile_photo'],
+        isOfficial: user['role'] == 'official',
+      );
+    } else if (json['author'] != null) {
+      // Regular posts have 'author'
+      author = PostAuthor.fromJson(json['author']);
+    } else {
+      // Fallback
+      author = PostAuthor(id: 0, name: 'Unknown', isOfficial: false);
+    }
+
     return Post(
-      id: json['id'] ?? json['local_id'] ?? 0,
+      id: (json['id'] ?? json['local_id'] ?? 0).toString(), // Convert to string
       content: json['content'],
-      type: json['type'],
+      type: json['type'] ?? (isAd ? 'image' : 'announcement'),
       mediaUrls: mediaUrls,
       county: County.fromJson(json['county']),
-      author: PostAuthor.fromJson(json['author']),
+      author: author,
       likesCount: stats['likes'] ?? 0,
       commentsCount: stats['comments'] ?? 0,
       viewsCount: stats['views'] ?? 0,
       isLiked: json['is_liked'],
       createdAt: DateTime.parse(json['created_at']).toLocal(),
-      humanTime: json['human_time'],
+      humanTime: json['human_time'] ?? _calculateHumanTime(DateTime.parse(json['created_at']).toLocal()),
       priority: json['priority'],
       expiresAt: json['expires_at'] != null
         ? DateTime.parse(json['expires_at'])
@@ -102,7 +132,7 @@ class Post {
       serverId: json['server_id'],
       isLocal: json['is_local'] == 1 || json['is_local'] == true,
       syncStatus: json['sync_status'] ?? 'synced',
-      itemType: json['item_type'],
+      itemType: itemType,
       adType: json['ad_type'],
       clickUrl: json['click_url'],
       advertiserName: json['advertiser_name'],
@@ -121,7 +151,7 @@ class Post {
     // Videos removed for MVP - images only
 
     return Post(
-      id: row['server_id'] ?? row['id'],
+      id: (row['server_id'] ?? row['id']).toString(), // Convert to string
       content: row['content'],
       type: row['type'],
       mediaUrls: mediaUrls,
@@ -246,7 +276,7 @@ class Post {
   }
 
   Post copyWith({
-    int? id,
+    String? id,
     String? content,
     String? type,
     List<String>? mediaUrls,
@@ -314,6 +344,18 @@ class Post {
   bool get isCountyAd => isAd && adType == 'county';
   bool get isNationalAd => isAd && adType == 'national';
   bool get hasClickUrl => clickUrl != null && clickUrl!.isNotEmpty;
+
+  // Get numeric ID (strip "ad_" prefix if present)
+  int? get numericId {
+    try {
+      if (id.startsWith('ad_')) {
+        return int.parse(id.substring(3)); // Remove "ad_" prefix
+      }
+      return int.parse(id);
+    } catch (e) {
+      return null;
+    }
+  }
 
   // Always calculate fresh human time from createdAt
   String get freshHumanTime => _calculateHumanTime(createdAt);

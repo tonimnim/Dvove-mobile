@@ -82,7 +82,6 @@ class CommentsService {
         'has_ads': response.data['has_ads'],
       };
     } catch (e) {
-      print('Failed to fetch comments: $e');
       return {
         'success': false,
         'message': e.toString().replaceAll('Exception: ', ''),
@@ -99,7 +98,7 @@ class CommentsService {
       await prefs.setString(cacheKey, jsonEncode(commentsJson));
       await prefs.setString(lastCheckKey, DateTime.now().toIso8601String());
     } catch (e) {
-      print('Failed to update comments cache: $e');
+      // Silently fail - cache update is non-critical
     }
   }
 
@@ -194,7 +193,7 @@ class CommentsService {
         }
       }
     } catch (e) {
-      print('Failed to clear persistent cache for post $postId: $e');
+      // Silently fail - cache clear is non-critical
     }
   }
 
@@ -212,7 +211,7 @@ class CommentsService {
         }
       }
     } catch (e) {
-      print('Failed to clear comments cache: $e');
+      // Silently fail - cache clear is non-critical
     }
   }
 

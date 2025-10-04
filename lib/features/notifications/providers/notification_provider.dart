@@ -23,7 +23,6 @@ class NotificationProvider extends ChangeNotifier {
     try {
       _unreadCount = await _notificationService.getUnreadCount();
     } catch (e) {
-      print('[NotificationProvider] Error loading unread count: $e');
       _unreadCount = 0; // Set to 0 on error to avoid breaking UI
     }
 

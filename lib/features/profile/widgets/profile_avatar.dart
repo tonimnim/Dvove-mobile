@@ -132,7 +132,6 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
 
       return compressedFile;
     } catch (e) {
-      print('Error compressing image: $e');
       return file; // Return original if compression fails
     }
   }

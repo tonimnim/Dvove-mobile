@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/notification.dart' as models;
 import '../services/notification_service.dart';
 import '../widgets/notification_card.dart';
+import '../../constitution/screens/article_detail_screen.dart';
 
 /// Main notifications screen with filtering and pagination
 class NotificationsScreen extends StatefulWidget {
@@ -158,21 +159,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markNotificationAsRead(models.Notification notification) async {
-    if (notification.isRead) return;
+    // Mark as read if not already
+    if (!notification.isRead) {
+      try {
+        await _notificationService.markAsRead(notification.id);
 
-    try {
-      await _notificationService.markAsRead(notification.id);
+        // Update local state
+        setState(() {
+          final index = _notifications.indexWhere((n) => n.id == notification.id);
+          if (index != -1) {
+            _notifications[index] = notification.copyWith(isRead: true);
+          }
 
-      // Update local state
-      setState(() {
-        final index = _notifications.indexWhere((n) => n.id == notification.id);
-        if (index != -1) {
-          _notifications[index] = notification.copyWith(isRead: true);
-        }
-
-        // Update unread count
-        if (_meta != null) {
-          _meta = models.NotificationMeta(
+          // Update unread count
+          if (_meta != null) {
+            _meta = models.NotificationMeta(
             currentPage: _meta!.currentPage,
             from: _meta!.from,
             lastPage: _meta!.lastPage,
@@ -183,16 +184,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           );
         }
       });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error marking as read: ${e.toString()}'),
-            backgroundColor: Colors.red,
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error marking as read: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+
+    // Navigate based on notification type
+    if (mounted) {
+      _handleNotificationNavigation(notification);
+    }
+  }
+
+  void _handleNotificationNavigation(models.Notification notification) {
+    // Handle navigation based on notification type
+    if (notification.isConstitutionDaily) {
+      // Navigate to Article Detail screen
+      final articleId = notification.articleId;
+      if (articleId != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ArticleDetailScreen(articleId: articleId),
           ),
         );
       }
     }
+    // Add more navigation cases here as needed
+    // else if (notification.isNewPost) { ... }
+    // else if (notification.isAlert) { ... }
   }
 
   @override
@@ -244,7 +270,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   const SizedBox(height: 12),
                 ],
 
-                // Filter row: All/Jobs + Unread toggle
+                // Filter row: All/Jobs/Katiba + Unread toggle
                 Row(
                   children: [
                     _buildFilterChip(
@@ -258,6 +284,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       isSelected: _typeFilter == 'new_post',
                       onTap: () => _onFiltersChanged(type: 'new_post'),
                       color: const Color(0xFF01775A),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(
+                      label: 'Katiba360°',
+                      isSelected: _typeFilter == 'constitution_daily',
+                      onTap: () => _onFiltersChanged(type: 'constitution_daily'),
+                      color: const Color(0xFF006600),
                     ),
                     const Spacer(),
                     // Unread Only Toggle

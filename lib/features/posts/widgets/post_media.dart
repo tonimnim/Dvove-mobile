@@ -13,7 +13,6 @@ class PostMedia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('PostMedia: mediaUrls = $mediaUrls');
     if (mediaUrls.isEmpty) return const SizedBox.shrink();
 
     final count = mediaUrls.length;
@@ -63,7 +62,6 @@ class PostMedia extends StatelessWidget {
                 fit: BoxFit.cover,
                 width: double.infinity,
                 errorBuilder: (context, error, stackTrace) {
-                  print('Error loading local image $url: $error');
                   return Container(
                     height: 200,
                     color: Colors.grey.shade200,

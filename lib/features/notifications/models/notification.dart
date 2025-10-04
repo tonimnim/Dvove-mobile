@@ -25,11 +25,13 @@ class Notification {
   String get priority => data['priority'] ?? 'medium';
   int? get countyId => data['county_id'];
   int? get postId => data['post_id'];
+  String? get articleId => data['article_id'];
 
   bool get isHighPriority => priority == 'high';
   bool get isAlert => type == 'alert';
   bool get isNewPost => type == 'new_post';
   bool get isSubscription => type == 'subscription';
+  bool get isConstitutionDaily => type == 'constitution_daily';
 
   factory Notification.fromJson(Map<String, dynamic> json) {
     return Notification(

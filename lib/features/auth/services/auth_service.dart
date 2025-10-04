@@ -19,7 +19,6 @@ class AuthService {
     required String password,
     required int countyId,
   }) async {
-    print('[AuthService] REGISTER METHOD CALLED - NEW CODE IS RUNNING!');
     try {
       final response = await _apiClient.post(
         ApiEndpoints.register,
@@ -34,13 +33,10 @@ class AuthService {
 
       try {
         final data = response.data['data'];
-        print('[AuthService] data: $data');
 
         final user = User.fromJson(data['user']);
-        print('[AuthService] user created successfully');
 
         final message = response.data['message'];
-        print('[AuthService] message: $message');
 
         return {
           'success': true,
@@ -51,28 +47,18 @@ class AuthService {
           'expires_in': data['expires_in'],
         };
       } catch (e) {
-        print('[AuthService] Error parsing success response: $e');
         return {
           'success': false,
           'message': 'Failed to process registration response: $e',
         };
       }
     } on DioException catch (e) {
-      print('[AuthService] DioException caught! Status: ${e.response?.statusCode}');
-      print('[AuthService] Response data: ${e.response?.data}');
-
       if (e.response?.statusCode == 422) {
-        print('[AuthService] This is a 422 validation error');
-
         final responseData = e.response?.data;
-        print('[AuthService] Full response data: $responseData');
 
         final errors = responseData?['errors'];
-        print('[AuthService] Errors object: $errors');
-        print('[AuthService] Errors type: ${errors.runtimeType}');
 
         if (errors != null && errors is Map<String, dynamic>) {
-          print('[AuthService] Processing validation errors: $errors');
 
           // Extract user-friendly error messages - handle multiple errors intelligently
           String finalMessage = '';
@@ -108,25 +94,18 @@ class AuthService {
             }
           }
 
-          print('[AuthService] Final friendly message: $finalMessage');
-
           return {
             'success': false,
             'message': finalMessage,
           };
-        } else {
-          print('[AuthService] Errors object is null or wrong type');
         }
       }
 
-      print('[AuthService] Non-422 error or no errors object');
       return {
         'success': false,
         'message': e.response?.data?['message'] ?? 'Registration failed',
       };
     } catch (e) {
-      print('[AuthService] Generic catch block caught: $e');
-      print('[AuthService] Exception type: ${e.runtimeType}');
       return {
         'success': false,
         'message': e.toString().replaceAll('Exception: ', ''),
@@ -278,7 +257,7 @@ class AuthService {
     try {
       await _storage.saveUserData(jsonEncode(user.toJson()));
     } catch (e) {
-      print('[AuthService] Error saving user data to storage: $e');
+      // Silently fail - non-critical
     }
   }
 }

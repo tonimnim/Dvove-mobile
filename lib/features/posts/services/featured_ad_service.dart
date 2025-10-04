@@ -46,7 +46,6 @@ class FeaturedAdService {
       await prefs.setString(_lastCheckKey, today);
     } catch (e) {
       // Silently fail - featured ads are optional
-      print('Failed to fetch featured ad: $e');
     }
   }
 

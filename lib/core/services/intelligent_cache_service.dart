@@ -72,15 +72,6 @@ class IntelligentCacheService {
       return processedData;
 
     } catch (e) {
-      print('Error downloading image $url: $e');
-
-      if (e is DioException) {
-        print('DioException details: type=${e.type}, message=${e.message}');
-        if (e.response != null) {
-          print('Response status: ${e.response?.statusCode}');
-        }
-      }
-
       completer.complete(null);
       return null;
     } finally {
@@ -168,8 +159,6 @@ class IntelligentCacheService {
     try {
       final fixedUrl = AppConfig.fixMediaUrl(url);
 
-      print('Error downloading image $fixedUrl: Attempting download...');
-
       final response = await _dio.get<List<int>>(
         fixedUrl,
         options: Options(
@@ -178,8 +167,6 @@ class IntelligentCacheService {
           sendTimeout: const Duration(seconds: 30),
         ),
       );
-
-      print('Successfully downloaded image: $fixedUrl (${response.data?.length} bytes)');
 
       if (response.data == null) return null;
 

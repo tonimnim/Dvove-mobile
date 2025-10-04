@@ -99,8 +99,6 @@ class AuthProvider extends ChangeNotifier {
         countyId: countyId,
       );
 
-      print('[AuthProvider] Register result: $result');
-
       if (result['success']) {
         // Don't set as authenticated yet - user needs to verify email first
         _user = result['user'];

@@ -22,7 +22,6 @@ class ChatService {
   Future<List<ChatMessage>> getConversationMessages(String sessionId) async {
     try {
       final response = await _apiClient.get('/ai/conversations/$sessionId');
-      print('Messages response for $sessionId: ${response.data}'); // Debug log
 
       if (response.data['success'] == true) {
         final Map<String, dynamic> conversationData = response.data['data'] ?? {};
@@ -37,11 +36,9 @@ class ChatService {
           conversationId: sessionId,
         )).toList();
       } else {
-        print('Messages API returned success=false: ${response.data}');
         return []; // Return empty list for new conversations
       }
     } catch (e) {
-      print('Error loading conversation messages: $e');
       return []; // Return empty list instead of throwing
     }
   }
@@ -79,7 +76,6 @@ class ChatService {
   Future<List<Conversation>> getConversations() async {
     try {
       final response = await _apiClient.get('/ai/conversations');
-      print('Conversations response: ${response.data}'); // Debug log
 
       if (response.data['success'] == true) {
         final List<dynamic> conversationsData = response.data['data'] ?? [];
@@ -101,19 +97,15 @@ class ChatService {
           messageCount: data['message_count'] ?? 0,
         )).toList();
       } else {
-        print('API returned success=false: ${response.data}');
         return []; // Return empty list instead of throwing
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 500) {
-        print('Backend SQL error - conversations endpoint needs fixing: ${e.response?.data}');
         // For now, return empty list until backend is fixed
         return [];
       }
-      print('Error loading conversations: $e');
       return []; // Return empty list instead of crashing
     } catch (e) {
-      print('Error loading conversations: $e');
       return []; // Return empty list instead of crashing
     }
   }
@@ -121,16 +113,13 @@ class ChatService {
   Future<bool> deleteConversation(String sessionId) async {
     try {
       final response = await _apiClient.dio.delete('/ai/conversations/$sessionId');
-      print('Delete response for $sessionId: ${response.data}');
 
       if (response.data['success'] == true) {
         return true;
       } else {
-        print('Delete API returned success=false: ${response.data}');
         return false;
       }
     } catch (e) {
-      print('Error deleting conversation: $e');
       return false;
     }
   }

@@ -10,7 +10,7 @@ import '../../../shared/widgets/ad_trackable_widget.dart';
 import '../../../core/services/ad_tracking_service.dart';
 
 class CommentsSheet extends StatefulWidget {
-  final int postId;
+  final String postId;
   final bool commentsEnabled;
 
   const CommentsSheet({

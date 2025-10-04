@@ -152,6 +152,11 @@ class NotificationCard extends StatelessWidget {
         badgeText = 'Subscription';
         badgeIcon = Icons.star;
         break;
+      case 'constitution_daily':
+        badgeColor = const Color(0xFF006600);
+        badgeText = 'Katiba360°';
+        badgeIcon = Icons.gavel;
+        break;
       default:
         badgeColor = Colors.grey;
         badgeText = 'Update';

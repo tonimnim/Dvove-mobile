@@ -13,8 +13,9 @@ class PostHeader extends StatelessWidget {
   final DateTime? expiresAt;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-  final int postId;
+  final String postId;
   final bool isLocalPost;
+  final bool isAd;
 
   const PostHeader({
     super.key,
@@ -27,6 +28,7 @@ class PostHeader extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.isLocalPost = false,
+    this.isAd = false,
   });
 
   IconData _getTypeIcon() {
@@ -169,15 +171,15 @@ class PostHeader extends StatelessWidget {
             ],
           ),
         ),
-        // More button - only show for post author and synced posts
+        // More button - only show for post author and synced posts (NOT for ads)
         Consumer<AuthProvider>(
           builder: (context, authProvider, _) {
             final currentUser = authProvider.user;
             final isPostOwner = currentUser != null &&
                                currentUser.id == author.id;
 
-            // Don't show menu for local/pending posts or if not the owner
-            if (!isPostOwner || isLocalPost) return SizedBox.shrink();
+            // Don't show menu for ads, local/pending posts, or if not the owner
+            if (isAd || !isPostOwner || isLocalPost) return SizedBox.shrink();
 
             return PopupMenuButton<String>(
               icon: Icon(

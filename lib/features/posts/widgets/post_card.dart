@@ -92,17 +92,16 @@ class PostCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (post.advertiserName != null)
-                    Expanded(
-                      child: Text(
-                        'Sponsored by ${post.advertiserName}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.amber.shade800,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                  Expanded(
+                    child: Text(
+                      'Sponsored',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.amber.shade800,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
                 ],
               ),
             ),
@@ -137,6 +136,7 @@ class PostCard extends StatelessWidget {
                     onEdit: () => _handleEditPost(context),
                     onDelete: () => _handleDeletePost(context),
                     isLocalPost: post.isLocal, // Pass local status
+                    isAd: post.isAd, // Pass ad status to hide edit/delete menu
                   ),
 
                   const SizedBox(height: 8),

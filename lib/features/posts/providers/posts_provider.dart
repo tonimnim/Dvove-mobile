@@ -69,14 +69,11 @@ class PostsProvider extends ChangeNotifier {
     // Cancel any existing timer first
     _syncTimer?.cancel();
 
-    print('[PostsProvider] Starting background sync timer (10 min interval - optimized for backend 30min cache)');
     _syncTimer = Timer.periodic(Duration(minutes: 10), (_) {
       // Skip sync if we're processing a post
       if (_isProcessingPost) {
-        print('[PostsProvider] Background sync skipped - post in progress');
         return;
       }
-      print('[PostsProvider] 🔄 Background sync triggered (10 min interval)');
       _syncWithServer(silent: true);
     });
   }
@@ -92,7 +89,11 @@ class PostsProvider extends ChangeNotifier {
   }
 
   Future<void> initializeFeed({int? countyId, String? type}) async {
-    if (_isLoading) return;
+    print('🚀 [INIT] initializeFeed called - countyId: $countyId, type: $type');
+    if (_isLoading) {
+      print('⏸️ [INIT] Already loading, skipping');
+      return;
+    }
 
     _isLoading = true;
     _errorMessage = null;
@@ -103,15 +104,22 @@ class PostsProvider extends ChangeNotifier {
 
     try {
       // Load from database first
+      print('📂 [INIT] Loading from database...');
       await _loadFromDatabase(type: type);
+      print('📂 [INIT] Database loaded, posts count: ${_posts.length}');
 
       // Then sync with server
+      print('🌐 [INIT] Syncing with server...');
       await _syncWithServer(type: type, countyId: countyId);
-    } catch (e) {
+      print('🌐 [INIT] Server sync complete');
+    } catch (e, stackTrace) {
+      print('❌ [INIT ERROR] Exception in initializeFeed: $e');
+      print('📍 [INIT ERROR] Stack trace: $stackTrace');
       _errorMessage = 'An error occurred while loading posts';
     } finally {
       _isLoading = false;
       notifyListeners();
+      print('🏁 [INIT] initializeFeed finished - isLoading: $_isLoading, errorMessage: $_errorMessage, posts: ${_posts.length}');
     }
   }
 
@@ -138,9 +146,8 @@ class PostsProvider extends ChangeNotifier {
     bool forceRefresh = false,
   }) async {
     try {
+      print('🔄 [SYNC] Starting sync - countyId: $countyId, type: $type, forceRefresh: $forceRefresh');
       final headers = forceRefresh ? {'Cache-Control': 'no-cache'} : null;
-
-      print('[PostsProvider] 🌐 API CALL: getPosts(page: 1, countyId: $countyId, type: $type, forceRefresh: $forceRefresh)');
 
       final result = await _postsService.getPosts(
         page: 1,
@@ -149,35 +156,60 @@ class PostsProvider extends ChangeNotifier {
         headers: headers,
       );
 
-      print('[PostsProvider] ✅ API CALL SUCCESS: Received ${result['success'] ? (result['posts'] as List).length : 0} posts');
+      print('📦 [SYNC] Result received - success: ${result['success']}');
 
       if (result['success']) {
         final serverPosts = result['posts'] as List<Post>;
+        print('✅ [SYNC] Server posts count: ${serverPosts.length}');
 
-        // Save to database
+        // Save to database - ONLY posts, not ads (ads have "ad_" prefix)
         await _database.clearRemotePosts();
-        final dbMaps = serverPosts.map((p) => {
-          ...p.toDatabaseMap(),
-          'server_id': p.id,
-          'is_local': 0,
-        }).toList();
+        print('🗑️ [SYNC] Cleared remote posts from DB');
+
+        // Filter out ads and convert String IDs to int for database
+        final postsOnly = serverPosts.where((p) => p.itemType == 'post').toList();
+        print('📝 [SYNC] Posts to save (excluding ads): ${postsOnly.length}');
+
+        final dbMaps = postsOnly.map((p) {
+          // Parse String ID to int for database storage
+          final numericId = int.tryParse(p.id);
+          if (numericId == null) {
+            print('⚠️ [SYNC] Warning: Could not parse ID "${p.id}" to int, skipping');
+          }
+          return {
+            ...p.toDatabaseMap(),
+            'server_id': numericId, // Convert String "31" to int 31
+            'is_local': 0,
+          };
+        }).where((map) => map['server_id'] != null).toList(); // Only save valid posts
+
         await _database.upsertPosts(dbMaps);
+        print('💾 [SYNC] Saved ${dbMaps.length} posts to DB');
 
         // Instead of reloading from database, directly merge in memory
         final localPosts = await _database.getLocalPosts();
+        print('📍 [SYNC] Local pending posts in DB: ${localPosts.length}');
+
         final pendingPosts = localPosts
             .where((p) => type == null || p['type'] == type)
             .map((row) => Post.fromDatabase(row))
             .toList();
+        print('📍 [SYNC] Filtered pending posts: ${pendingPosts.length}');
 
         // Combine: pending posts first, then server posts
         _posts = [...pendingPosts, ...serverPosts];
+        print('🎯 [SYNC] Final _posts count: ${_posts.length} (pending: ${pendingPosts.length}, server: ${serverPosts.length})');
         notifyListeners();
 
         _hasMoreData = result['meta']['current_page'] < result['meta']['last_page'];
         _errorMessage = null;
+        print('✅ [SYNC] Sync completed successfully');
+      } else {
+        print('❌ [SYNC] Result success was false');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ [SYNC ERROR] Exception caught: $e');
+      print('📍 [SYNC ERROR] Stack trace: $stackTrace');
       if (!silent) {
         _errorMessage = 'Failed to sync with server';
       }
@@ -187,7 +219,6 @@ class PostsProvider extends ChangeNotifier {
   Future<void> refreshPosts({int? countyId, String? type}) async {
     // Don't refresh if we're currently processing a post
     if (_isProcessingPost) {
-      print('[PostsProvider] Skipping refresh - post sync in progress');
       return;
     }
 
@@ -254,8 +285,6 @@ class PostsProvider extends ChangeNotifier {
   }) async {
     // Prevent multiple concurrent posts - CRITICAL CHECK
     if (_isProcessingPost) {
-      print('[PostsProvider] CRITICAL: Multiple post attempt BLOCKED! Already processing a post. Content: "${content.substring(0, min(30, content.length))}..."');
-      print('[PostsProvider] Current processing post count: ${_posts.where((p) => p.syncStatus == 'pending').length}');
       return null;
     }
 
@@ -280,7 +309,6 @@ class PostsProvider extends ChangeNotifier {
       });
 
       if (hasDuplicateRecentPost) {
-        print('[PostsProvider] DUPLICATE PREVENTED: Same content posted within 30 seconds. Content: "${content.substring(0, min(50, content.length))}..."');
         _isProcessingPost = false;
         return null;
       }
@@ -293,7 +321,7 @@ class PostsProvider extends ChangeNotifier {
       if (imagePaths != null) localMediaPaths.addAll(imagePaths);
 
       final localPost = Post(
-        id: -now.millisecondsSinceEpoch, // Temporary negative ID
+        id: 'local_${now.millisecondsSinceEpoch}', // Temporary local ID
         content: content,
         type: type,
         mediaUrls: localMediaPaths, // Store local paths temporarily
@@ -347,14 +375,12 @@ class PostsProvider extends ChangeNotifier {
       Timer(Duration(seconds: 30), () {
         if (_isProcessingPost) {
           _isProcessingPost = false;
-          print('[PostsProvider] Processing flag RESET after 30s timeout');
         }
       });
 
       return postWithLocalId;
     } catch (e) {
       _isProcessingPost = false;
-      print('[PostsProvider] Processing flag RESET after catch error in createPostOptimistic: $e');
       return null;
     }
   }
@@ -373,7 +399,6 @@ class PostsProvider extends ChangeNotifier {
           .toList();
       }
 
-      print('[PostsProvider] SYNC ATTEMPT ${attempt + 1}/5: Uploading ${imageFiles?.length ?? 0} images. Type: ${postData['type']}');
 
       // Track retry analytics
       if (attempt > 0) {
@@ -394,7 +419,6 @@ class PostsProvider extends ChangeNotifier {
         onProgress: (progress) {
           _uploadProgress[localId] = progress;
           if (progress == 1.0) {
-            print('[PostsProvider] UPLOAD COMPLETE: Post $localId finished uploading to server');
           }
           notifyListeners();
         },
@@ -454,7 +478,6 @@ class PostsProvider extends ChangeNotifier {
         // Clean up and release flag - ALWAYS on success
         _uploadProgress.remove(localId);
         _isProcessingPost = false;
-        print('[PostsProvider] Processing flag RESET after successful sync (localId: $localId)');
 
         // Notify success
         if (onSyncComplete != null) {
@@ -492,13 +515,13 @@ class PostsProvider extends ChangeNotifier {
   }
 
 
-  void removePost(int postId) {
-    _posts.removeWhere((post) => post.id == postId || post.serverId == postId);
+  void removePost(String postId) {
+    _posts.removeWhere((post) => post.id == postId || post.serverId.toString() == postId);
     notifyListeners();
   }
 
-  Future<void> toggleLike(int postId) async {
-    final postIndex = _posts.indexWhere((post) => post.id == postId || post.serverId == postId);
+  Future<void> toggleLike(String postId) async {
+    final postIndex = _posts.indexWhere((post) => post.id == postId || post.serverId.toString() == postId);
     if (postIndex == -1) return;
 
     final post = _posts[postIndex];
@@ -533,12 +556,12 @@ class PostsProvider extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>?> addComment(int postId, String content) async {
+  Future<Map<String, dynamic>?> addComment(String postId, String content) async {
     try {
       final result = await _postsService.addComment(postId, content);
 
       if (result['success']) {
-        final postIndex = _posts.indexWhere((post) => post.id == postId || post.serverId == postId);
+        final postIndex = _posts.indexWhere((post) => post.id == postId || post.serverId.toString() == postId);
         if (postIndex != -1) {
           _posts[postIndex] = _posts[postIndex].copyWith(
             commentsCount: _posts[postIndex].commentsCount + 1,

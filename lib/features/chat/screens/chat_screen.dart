@@ -42,7 +42,6 @@ class _ChatScreenState extends State<ChatScreen> {
         _currentSessionId = await _chatService.createNewConversation();
       }
     } catch (e) {
-      print('Error initializing session: $e');
       // Fallback to a temporary session ID
       _currentSessionId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     }
@@ -55,7 +54,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.clear();
       });
     } catch (e) {
-      print('Error creating new conversation: $e');
+      // Silently fail
     }
   }
 
@@ -74,7 +73,6 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       _scrollToBottom();
     } catch (e) {
-      print('Error loading messages: $e');
       // If conversation doesn't exist yet, start with empty messages
       setState(() {
         _messages = [];

@@ -31,7 +31,6 @@ class NotificationService {
       if (page == 1 && _cachedNotifications != null &&
           _lastCacheTime != null && _lastCacheKey == cacheKey &&
           DateTime.now().difference(_lastCacheTime!) < _cacheExpiry) {
-        print('[NotificationService] Returning cached notifications');
         return models.NotificationResponse(
           success: true,
           notifications: _cachedNotifications!,
@@ -44,8 +43,6 @@ class NotificationService {
           ),
         );
       }
-
-      print('[NotificationService] Fetching notifications');
 
       // Build query parameters
       final queryParams = <String, dynamic>{};
@@ -61,7 +58,6 @@ class NotificationService {
       );
 
       if (response.data['success'] == true) {
-        print('[NotificationService] Notifications fetched successfully');
         final notificationResponse = models.NotificationResponse.fromJson(response.data);
 
         // Cache first page results only
@@ -76,15 +72,12 @@ class NotificationService {
         throw Exception('Failed to fetch notifications: ${response.data['message']}');
       }
     } on DioException catch (e) {
-      print('[NotificationService] API Error: ${e.message}');
-
       if (e.response?.statusCode == 401) {
         throw Exception('Authentication required. Please login again.');
       }
 
       throw Exception('Failed to load notifications: ${e.message}');
     } catch (e) {
-      print('[NotificationService] Error: $e');
       throw Exception('Failed to load notifications: $e');
     }
   }
@@ -100,20 +93,15 @@ class NotificationService {
   /// POST /api/v1/user/notifications/{notification_id}/read
   Future<models.Notification> markAsRead(int notificationId) async {
     try {
-      print('[NotificationService] Marking notification $notificationId as read');
-
       final response = await _apiClient.post('/user/notifications/$notificationId/read');
 
       if (response.data['success'] == true) {
-        print('[NotificationService] Notification marked as read successfully');
         _clearCache(); // Clear cache when notification changes
         return models.Notification.fromJson(response.data['data']);
       } else {
         throw Exception('Failed to mark notification as read: ${response.data['message']}');
       }
     } on DioException catch (e) {
-      print('[NotificationService] Mark Read API Error: ${e.message}');
-
       if (e.response?.statusCode == 403) {
         throw Exception('You cannot modify this notification');
       } else if (e.response?.statusCode == 404) {
@@ -122,7 +110,6 @@ class NotificationService {
 
       throw Exception('Failed to mark notification as read: ${e.message}');
     } catch (e) {
-      print('[NotificationService] Mark Read Error: $e');
       throw Exception('Failed to mark notification as read: $e');
     }
   }
@@ -131,13 +118,10 @@ class NotificationService {
   /// POST /api/v1/user/notifications/read-all
   Future<Map<String, dynamic>> markAllAsRead() async {
     try {
-      print('[NotificationService] Marking all notifications as read');
-
       final response = await _apiClient.post('/user/notifications/read-all');
 
       if (response.data['success'] == true) {
         final data = response.data['data'];
-        print('[NotificationService] ${data['updated_count']} notifications marked as read');
 
         _clearCache(); // Clear cache when notifications change
 
@@ -151,10 +135,8 @@ class NotificationService {
         throw Exception('Failed to mark all notifications as read: ${response.data['message']}');
       }
     } on DioException catch (e) {
-      print('[NotificationService] Mark All Read API Error: ${e.message}');
       throw Exception('Failed to mark all notifications as read: ${e.message}');
     } catch (e) {
-      print('[NotificationService] Mark All Read Error: $e');
       throw Exception('Failed to mark all notifications as read: $e');
     }
   }
@@ -166,7 +148,6 @@ class NotificationService {
       final response = await getNotifications(perPage: 1);
       return response.meta.unreadCount;
     } catch (e) {
-      print('[NotificationService] Error getting unread count: $e');
       return 0; // Return 0 on error to avoid breaking UI
     }
   }

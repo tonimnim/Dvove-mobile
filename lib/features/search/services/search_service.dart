@@ -26,9 +26,6 @@ class SearchService {
         if (countyId != null) 'county_id': countyId,
       };
 
-      // Debug logging
-      print('[SearchService] Searching with params: $queryParams');
-
       final response = await _apiClient.get(
         ApiEndpoints.search,
         queryParameters: queryParams,
@@ -47,13 +44,11 @@ class SearchService {
         'searchTerm': query,
       };
     } on DioException catch (e) {
-      print('[SearchService] API Error: ${e.message}');
       if (e.response?.statusCode == 422) {
         throw Exception('Search query is required');
       }
       throw Exception('Search failed: ${e.message}');
     } catch (e) {
-      print('[SearchService] Error: $e');
       throw Exception('Search failed: $e');
     }
   }

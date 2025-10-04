@@ -29,7 +29,6 @@ class AdTrackingService {
       );
     } catch (e) {
       // Silently fail - don't block UI
-      print('[AdTracking] Impression failed: $e');
     }
   }
 
@@ -48,7 +47,6 @@ class AdTrackingService {
       return response.data['click_url'];
     } catch (e) {
       // Silently fail - don't block UI
-      print('[AdTracking] Click failed: $e');
       return null;
     }
   }

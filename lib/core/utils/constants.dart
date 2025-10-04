@@ -59,7 +59,10 @@ class ApiEndpoints {
 class AppColors {
   AppColors._();
 
-  static const Color primaryGreen = Color(0xFF006600); // Kenya flag green
+  // Main theme color
+  static const Color primary = Color(0xFF01775A); // Dvove brand color (teal/green)
+
+  static const Color primaryGreen = Color(0xFF006600); // Kenya flag green (for constitution)
   static const Color secondaryRed = Color(0xFFBB0000); // Kenya flag red
   static const Color accentBlack = Color(0xFF000000);
   static const Color backgroundGray = Color(0xFFF5F5F5);

@@ -5,7 +5,7 @@ import '../../core/services/ad_tracking_service.dart';
 
 class AdTrackableWidget extends StatelessWidget {
   final Widget child;
-  final int adId;
+  final String adId; // Changed to String to handle "ad_1" format
   final String context;
   final String? clickUrl;
 
@@ -19,10 +19,15 @@ class AdTrackableWidget extends StatelessWidget {
 
   static final _trackingService = AdTrackingService();
 
+  // Helper to get numeric ID
+  int get numericAdId {
+    return int.parse(adId.replaceFirst('ad_', ''));
+  }
+
   void _handleTap() async {
     // Track click
     final urlToOpen = await _trackingService.trackClick(
-      adId: adId,
+      adId: numericAdId,
       context: context,
     );
 
@@ -32,7 +37,7 @@ class AdTrackableWidget extends StatelessWidget {
       try {
         await launchUrl(Uri.parse(finalUrl), mode: LaunchMode.externalApplication);
       } catch (e) {
-        print('[AdTracking] Could not launch URL: $e');
+        // Silently fail
       }
     }
   }
@@ -45,7 +50,7 @@ class AdTrackableWidget extends StatelessWidget {
         // Track impression when >50% visible
         if (info.visibleFraction > 0.5) {
           _trackingService.trackImpression(
-            adId: adId,
+            adId: numericAdId,
             context: this.context,
           );
         }

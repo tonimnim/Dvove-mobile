@@ -21,8 +21,6 @@ class OfficialPostsService {
     Function(double progress)? onProgress,
   }) async {
     try {
-      print('[OfficialPostsService] Starting createPost - content length: ${content.length}, images: ${images?.length ?? 0}');
-
       // Build FormData for efficient multipart upload
       final formData = FormData.fromMap({
         'content': content,
@@ -39,7 +37,6 @@ class OfficialPostsService {
 
           // Check file size (5MB limit per image for performance)
           final fileSize = await file.length();
-          print('[OfficialPostsService] Image $i size: ${fileSize / 1024} KB');
 
           if (fileSize > 5 * 1024 * 1024) {
             return {
@@ -58,8 +55,6 @@ class OfficialPostsService {
         }
       }
 
-      print('[OfficialPostsService] About to send POST request to ${ApiEndpoints.createPost}');
-
       final response = await _apiClient.post(
         ApiEndpoints.createPost,
         data: formData,
@@ -69,12 +64,9 @@ class OfficialPostsService {
         ),
         onSendProgress: onProgress != null ? (sent, total) {
           final progress = sent / total;
-          print('[OfficialPostsService] Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
           onProgress(progress);
         } : null,
       );
-
-      print('[OfficialPostsService] POST request completed successfully');
 
       return {
         'success': true,
@@ -82,8 +74,6 @@ class OfficialPostsService {
         'post': Post.fromJson(response.data['data']),
       };
     } on DioException catch (e) {
-      print('[OfficialPostsService] DioException: ${e.type}, status: ${e.response?.statusCode}, message: ${e.message}');
-
       if (e.response?.statusCode == 403) {
         return {
           'success': false,
@@ -104,7 +94,6 @@ class OfficialPostsService {
         'message': e.response?.data['message'] ?? 'Failed to create post. Please try again.',
       };
     } catch (e) {
-      print('[OfficialPostsService] Unexpected error: $e');
       return {
         'success': false,
         'message': 'An unexpected error occurred: $e',

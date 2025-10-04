@@ -308,7 +308,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Future<void> _createPost() async {
     // Prevent double-tap by checking flag immediately
     if (_isPosting) {
-      print('[CreatePostScreen] Post already in progress, ignoring duplicate tap');
       return;
     }
 

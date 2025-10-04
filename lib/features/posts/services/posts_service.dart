@@ -31,19 +31,30 @@ class PostsService {
         if (search != null) 'search': search,
       };
 
-      // Debug logging
-      print('[PostsService] Fetching posts from: ${_apiClient.dio.options.baseUrl}${ApiEndpoints.posts}');
-      print('[PostsService] Query params: $queryParams');
-
       final response = await _apiClient.get(
         ApiEndpoints.posts,
         queryParameters: queryParams,
         options: headers != null ? Options(headers: headers) : null,
       );
 
+      print('🔍 [POSTS_SERVICE] Raw response.data keys: ${response.data.keys}');
+      print('🔍 [POSTS_SERVICE] response.data["data"] length: ${(response.data['data'] as List).length}');
+
+      // Parse all items (posts + ads) from the data array
       final List<Post> posts = (response.data['data'] as List)
-          .map((json) => Post.fromJson(json))
+          .map((json) {
+            try {
+              return Post.fromJson(json);
+            } catch (e) {
+              print('⚠️ [POSTS_SERVICE] Error parsing item: ${json['id']} - $e');
+              return null;
+            }
+          })
+          .where((post) => post != null)
+          .cast<Post>()
           .toList();
+
+      print('✅ [POSTS_SERVICE] Parsed ${posts.length} items (posts + ads) successfully');
 
       return {
         'success': true,
@@ -52,6 +63,8 @@ class PostsService {
         'links': response.data['links'],
       };
     } catch (e) {
+      print('❌ [POSTS_SERVICE] Exception in getPosts: $e');
+      print('📍 [POSTS_SERVICE] Stack trace: ${StackTrace.current}');
       return {
         'success': false,
         'message': e.toString().replaceAll('Exception: ', ''),
@@ -60,9 +73,11 @@ class PostsService {
   }
 
   // Get single post
-  Future<Map<String, dynamic>> getPost(int postId) async {
+  Future<Map<String, dynamic>> getPost(String postId) async {
     try {
-      final response = await _apiClient.get(ApiEndpoints.postDetails(postId));
+      // Parse numeric ID (ads can't be fetched individually)
+      final numericId = int.parse(postId.replaceFirst('ad_', ''));
+      final response = await _apiClient.get(ApiEndpoints.postDetails(numericId));
       final post = Post.fromJson(response.data['data']);
 
       return {
@@ -78,9 +93,11 @@ class PostsService {
   }
 
   // Like a post
-  Future<Map<String, dynamic>> likePost(int postId) async {
+  Future<Map<String, dynamic>> likePost(String postId) async {
     try {
-      final response = await _apiClient.post(ApiEndpoints.likePost(postId));
+      // Parse numeric ID (ads can't be liked)
+      final numericId = int.parse(postId.replaceFirst('ad_', ''));
+      final response = await _apiClient.post(ApiEndpoints.likePost(numericId));
 
       return {
         'success': true,
@@ -96,9 +113,11 @@ class PostsService {
   }
 
   // Unlike a post
-  Future<Map<String, dynamic>> unlikePost(int postId) async {
+  Future<Map<String, dynamic>> unlikePost(String postId) async {
     try {
-      final response = await _apiClient.post(ApiEndpoints.unlikePost(postId));
+      // Parse numeric ID (ads can't be unliked)
+      final numericId = int.parse(postId.replaceFirst('ad_', ''));
+      final response = await _apiClient.post(ApiEndpoints.unlikePost(numericId));
 
       return {
         'success': true,
@@ -114,13 +133,17 @@ class PostsService {
   }
 
   // Get comments for a post with caching
-  Future<Map<String, dynamic>> getComments(int postId, {int page = 1}) async {
-    return _commentsService.getComments(postId, page: page);
+  Future<Map<String, dynamic>> getComments(String postId, {int page = 1}) async {
+    // Parse numeric ID (ads can't have comments)
+    final numericId = int.parse(postId.replaceFirst('ad_', ''));
+    return _commentsService.getComments(numericId, page: page);
   }
 
   // Add comment to a post
-  Future<Map<String, dynamic>> addComment(int postId, String content) async {
-    return _commentsService.addComment(postId, content);
+  Future<Map<String, dynamic>> addComment(String postId, String content) async {
+    // Parse numeric ID (ads can't have comments)
+    final numericId = int.parse(postId.replaceFirst('ad_', ''));
+    return _commentsService.addComment(numericId, content);
   }
 
   // Edit comment
@@ -169,10 +192,6 @@ class PostsService {
     String? priority,
   }) async {
     try {
-      // Debug logging
-      print('[PostsService] Creating post at: ${_apiClient.dio.options.baseUrl}${ApiEndpoints.posts}');
-      print('[PostsService] Type: $type, Content length: ${content.length}');
-
       // Use FormData for multipart upload when media is present
       dynamic data;
 
@@ -237,7 +256,7 @@ class PostsService {
 
   // Update/Edit a post
   Future<Map<String, dynamic>> updatePost({
-    required int postId,
+    required String postId,
     required String content,
     required String type,
     DateTime? expiresAt,
@@ -245,8 +264,10 @@ class PostsService {
     bool commentsEnabled = true,
   }) async {
     try {
+      // Parse numeric ID (ads can't be edited)
+      final numericId = int.parse(postId.replaceFirst('ad_', ''));
       final response = await _apiClient.put(
-        ApiEndpoints.updatePost(postId),
+        ApiEndpoints.updatePost(numericId),
         data: {
           'content': content,
           'type': type,
@@ -272,9 +293,11 @@ class PostsService {
   }
 
   // Delete a post
-  Future<Map<String, dynamic>> deletePost(int postId) async {
+  Future<Map<String, dynamic>> deletePost(String postId) async {
     try {
-      await _apiClient.delete(ApiEndpoints.deletePost(postId));
+      // Parse numeric ID (ads can't be deleted)
+      final numericId = int.parse(postId.replaceFirst('ad_', ''));
+      await _apiClient.delete(ApiEndpoints.deletePost(numericId));
 
       return {
         'success': true,
