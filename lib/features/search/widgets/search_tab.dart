@@ -6,7 +6,7 @@ import '../../posts/models/post.dart';
 import '../../posts/widgets/post_card.dart';
 import '../../posts/providers/posts_provider.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../../shared/widgets/user_avatar.dart';
+import '../../posts/widgets/memory_optimized_image.dart';
 
 class SearchTab extends StatefulWidget {
   const SearchTab({super.key});
@@ -78,8 +78,14 @@ class _SearchTabState extends State<SearchTab> {
         _isLoading = false;
       });
     } catch (e) {
+      // Extract clean error message
+      String errorMsg = e.toString();
+      if (errorMsg.startsWith('Exception: ')) {
+        errorMsg = errorMsg.substring('Exception: '.length);
+      }
+
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = errorMsg;
         _isLoading = false;
         _searchResults = [];
       });
@@ -131,9 +137,10 @@ class _SearchTabState extends State<SearchTab> {
                   return Row(
                     children: [
                       // Profile avatar
-                      UserAvatar(
-                        user: user,
-                        radius: 20,
+                      MemoryOptimizedAvatar(
+                        imageUrl: user?.profilePhoto,
+                        fallbackText: user?.displayName ?? 'U',
+                        size: 40, // radius 20 * 2 = 40
                       ),
                       const SizedBox(width: 12),
                       // Search input
@@ -197,41 +204,48 @@ class _SearchTabState extends State<SearchTab> {
 
     if (_errorMessage != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Search failed',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.grey.shade400,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _errorMessage!,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
+              const SizedBox(height: 16),
+              Text(
+                'Search failed',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _performSearch,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF01775A),
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade500,
+                ),
+                textAlign: TextAlign.center,
               ),
-              child: const Text('Try Again', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _performSearch,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF01775A),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
         ),
       );
     }

@@ -13,13 +13,14 @@ import '../../chat/screens/chat_screen.dart';
 import '../../chat/services/chat_service.dart';
 import '../../search/widgets/search_tab.dart';
 import '../../profile/screens/profile_screen.dart';
-import '../../../shared/widgets/user_avatar.dart';
-import '../../../shared/widgets/notification_badge.dart';
+import '../widgets/memory_optimized_image.dart';
 import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../constitution/screens/constitution_screen.dart';
 import '../../../core/utils/constants.dart';
 import '../../profile/widgets/subscription_list_tile.dart';
+import '../providers/posts_provider.dart';
+import '../../polls/screens/polls_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,8 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
       notificationProvider.loadUnreadCount();
     });
+
     _pages = [
-      PostsFeed(key: ValueKey('home_feed')), // Home
+      PostsFeed(key: ValueKey('home_feed'), excludeType: 'job'), // Home (no jobs)
       const SearchTab(), // Search
       PostsFeed(key: ValueKey('jobs_feed'), postType: 'job'), // Jobs
       const ConstitutionScreen(), // Constitution
@@ -80,26 +82,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return packageInfo.version;
   }
 
-  void _showComingSoonSnackBar(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature is coming soon!'),
-        backgroundColor: Colors.blue,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final user = authProvider.user;
-    final canCreatePosts = authProvider.canCreatePosts;
+    // Don't listen to auth changes for entire screen rebuild
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -126,12 +112,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (_selectedIndex != 3) // Hide avatar on Constitution tab
                       Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: UserAvatar(
-                          user: user,
-                          radius: 18,
-                          onTap: () {
-                            _scaffoldKey.currentState?.openDrawer();
-                          },
+                        child: Consumer<AuthProvider>(
+                          builder: (context, auth, child) => GestureDetector(
+                            onTap: () {
+                              _scaffoldKey.currentState?.openDrawer();
+                            },
+                            child: MemoryOptimizedAvatar(
+                              imageUrl: auth.user?.profilePhoto,
+                              fallbackText: auth.user?.displayName ?? 'U',
+                              size: 36, // radius 18 * 2 = 36
+                            ),
+                          ),
                         ),
                       ),
                     if (_selectedIndex == 3) const SizedBox(width: 12), // Padding when avatar hidden
@@ -141,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? const Text(
                               'Dvove AI',
                               style: TextStyle(
-                                fontFamily: 'Biski',
+                                fontFamily: 'Chirp',
                                 fontSize: 21,
                                 fontWeight: FontWeight.w400,
                                 color: Colors.black,
@@ -193,31 +184,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                         color: Colors.black,
                                       ),
                                     )
-                                  : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                const Text(
-                                  'D',
-                                  style: TextStyle(
-                                    fontFamily: 'Biski',
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w400,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                const Text(
-                                  'vove',
-                                  style: TextStyle(
-                                    fontFamily: 'Biski',
-                                    fontSize: 21,
-                                    fontWeight: FontWeight.w400,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
+                                  : const Text(
+                                      'Dvove',
+                                      style: TextStyle(
+                                        fontFamily: 'Chirp',
+                                        fontSize: 21,
+                                        fontWeight: FontWeight.w400,
+                                        color: Colors.black,
+                                      ),
+                                    ),
                       ),
                     ),
                   if (_selectedIndex == 4) // AI tab: show new chat + history icons
@@ -318,6 +293,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                     ),
+                  if (_selectedIndex == 0) // Home feed: show poll icon after notifications
+                    IconButton(
+                      icon: const Icon(
+                        Icons.poll_outlined,
+                        color: Colors.black,
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PollsListScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   if (_selectedIndex != 4 && _selectedIndex != 0) const SizedBox(width: 48),
                 ],
               ),
@@ -334,77 +325,67 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: Drawer(
         backgroundColor: Colors.white,
         child: SafeArea(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
-              ),
-              child: IntrinsicHeight(
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          UserAvatar(
-                            user: user,
-                            radius: 30,
+          child: Consumer<AuthProvider>(
+            builder: (context, auth, child) {
+              final user = auth.user;
+              return Column(
+                children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MemoryOptimizedAvatar(
+                                imageUrl: user?.profilePhoto,
+                                fallbackText: user?.displayName ?? 'U',
+                                size: 60, // radius 30 * 2 = 60
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                user?.displayName ?? 'User',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '@${user?.username ?? 'username'}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            user?.displayName ?? 'User',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '@${user?.username ?? 'username'}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.person_outline, color: Colors.black),
+                          title: const Text('Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ProfileScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        if (user?.role == 'official' && user?.phoneNumber != null) ...[
+                          SubscriptionListTile(
+                            phoneNumber: user!.phoneNumber!,
+                            hasActiveSubscription: user.hasActiveSubscription,
                           ),
                         ],
-                      ),
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(Icons.person_outline, color: Colors.black),
-                      title: const Text('Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProfileScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    if (user?.role == 'official' && user?.phoneNumber != null) ...[
-                      SubscriptionListTile(
-                        phoneNumber: user!.phoneNumber!,
-                        hasActiveSubscription: user.hasActiveSubscription,
-                      ),
-                    ],
-                    ListTile(
-                      leading: const Icon(Icons.notifications_outlined, color: Colors.black),
-                      title: const Text('Notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _showComingSoonSnackBar('Notifications');
-                      },
-                    ),
                     ListTile(
                       leading: const Icon(Icons.share_outlined, color: Colors.black),
                       title: const Text('Share App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(context);
-                        Share.share('Check out Dvove - Your County Connection! Download now: https://play.google.com/store/apps/details?id=com.dvove.county_connect');
+                        Share.share('Check out Dvove - Your County Connection! Download now: https://play.google.com/store/apps/details?id=com.dvove.app');
                       },
                     ),
                     ListTile(
@@ -440,6 +421,51 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline, color: Colors.red),
+                      title: const Text('Delete Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red)),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete Account?'),
+                            content: const Text('This will permanently delete your account and all data. This action cannot be undone.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true && mounted) {
+                          final success = await authProvider.deleteAccount();
+                          if (success && mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Account deleted successfully')),
+                            );
+                          } else if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(authProvider.errorMessage ?? 'Failed to delete account'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
                     Expanded(child: Container()),
                     const Divider(),
                     ListTile(
@@ -458,7 +484,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                       onTap: () async {
+                        // Clear all provider caches
+                        final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+                        final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+
+                        await postsProvider.clearCache();
+                        notificationProvider.clearCache();
+                        await _chatService.clearCache();
+
+                        // Logout
                         await authProvider.logout();
+
                         if (mounted) {
                           Navigator.pushReplacement(
                             context,
@@ -469,32 +505,38 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
+                      const SizedBox(height: 20),
+                ],
+              );
+            },
           ),
         ),
       ),
-      floatingActionButton: (canCreatePosts && _selectedIndex != 1 && _selectedIndex != 3 && _selectedIndex != 4) ? SizedBox(
-        height: 48,
-        width: 48,
-        child: FloatingActionButton(
-          onPressed: () async {
-            await Navigator.push<Post?>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const CreatePostScreen(),
-              ),
-            );
-            // Post is automatically added to the feed via PostsProvider
-          },
-          backgroundColor: const Color(0xFF01775A),
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add, color: Colors.white, size: 24),
-        ),
-      ) : null,
+      floatingActionButton: Consumer<AuthProvider>(
+        builder: (context, auth, child) {
+          final canCreatePosts = auth.canCreatePosts;
+          return (canCreatePosts && _selectedIndex != 1 && _selectedIndex != 3 && _selectedIndex != 4)
+            ? SizedBox(
+                height: 48,
+                width: 48,
+                child: FloatingActionButton(
+                  onPressed: () async {
+                    await Navigator.push<Post?>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CreatePostScreen(),
+                      ),
+                    );
+                    // Post is automatically added to the feed via PostsProvider
+                  },
+                  backgroundColor: const Color(0xFF01775A),
+                  shape: const CircleBorder(),
+                  child: const Icon(Icons.add, color: Colors.white, size: 24),
+                ),
+              )
+            : const SizedBox.shrink();
+        },
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

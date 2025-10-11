@@ -50,8 +50,6 @@ class ProfileService {
       );
 
       if (response.data['success'] == true) {
-        final photoUrl = response.data['data']['profile_photo_url'];
-
         // Now get the updated user profile
         return await getCurrentUser();
       } else {

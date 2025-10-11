@@ -167,8 +167,12 @@ class _FormattedTextState extends State<FormattedText> {
             color: Colors.blue,
             decoration: TextDecoration.underline,
           );
-          onTap = () {
-            // TODO: Open phone dialer
+          onTap = () async {
+            final phoneNumber = match.text.replaceAll(RegExp(r'[^\d+]'), '');
+            final Uri phoneUri = Uri.parse('tel:$phoneNumber');
+            if (await canLaunchUrl(phoneUri)) {
+              await launchUrl(phoneUri);
+            }
           };
           break;
         default:

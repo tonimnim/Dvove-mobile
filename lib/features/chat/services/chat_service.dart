@@ -1,10 +1,18 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 
 class ChatService {
   final ApiClient _apiClient = ApiClient();
+
+  // Cache keys
+  static const String _conversationsKey = 'cached_conversations';
+  static const String _conversationsCacheTimeKey = 'conversations_cache_time';
+  static const String _messagesPrefix = 'cached_messages_';
+  static const Duration _cacheDuration = Duration(minutes: 10);
 
   Future<String> createNewConversation() async {
     try {
@@ -19,27 +27,54 @@ class ChatService {
     }
   }
 
-  Future<List<ChatMessage>> getConversationMessages(String sessionId) async {
+  Future<List<ChatMessage>> getConversationMessages(String sessionId, {bool forceRefresh = false}) async {
     try {
+      // Check cache first
+      if (!forceRefresh) {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedData = prefs.getString('$_messagesPrefix$sessionId');
+        if (cachedData != null) {
+          final List<dynamic> messagesData = jsonDecode(cachedData);
+          return messagesData.map((data) => ChatMessage(
+            message: data['message'] ?? '',
+            isUser: data['isUser'] ?? false,
+            timestamp: DateTime.parse(data['timestamp']),
+            conversationId: sessionId,
+          )).toList();
+        }
+      }
+
+      // Fetch from API
       final response = await _apiClient.get('/ai/conversations/$sessionId');
 
       if (response.data['success'] == true) {
         final Map<String, dynamic> conversationData = response.data['data'] ?? {};
         final List<dynamic> messagesData = conversationData['messages'] ?? [];
 
-        return messagesData.map((data) => ChatMessage(
+        final messages = messagesData.map((data) => ChatMessage(
           message: data['message'] ?? '',
-          isUser: data['type'] == 'user', // Backend uses 'type' field
+          isUser: data['type'] == 'user',
           timestamp: data['timestamp'] != null
             ? DateTime.parse(data['timestamp'])
             : DateTime.now(),
           conversationId: sessionId,
         )).toList();
+
+        // Cache messages
+        final prefs = await SharedPreferences.getInstance();
+        final cacheData = messages.map((msg) => {
+          'message': msg.message,
+          'isUser': msg.isUser,
+          'timestamp': msg.timestamp.toIso8601String(),
+        }).toList();
+        await prefs.setString('$_messagesPrefix$sessionId', jsonEncode(cacheData));
+
+        return messages;
       } else {
-        return []; // Return empty list for new conversations
+        return [];
       }
     } catch (e) {
-      return []; // Return empty list instead of throwing
+      return [];
     }
   }
 
@@ -51,11 +86,15 @@ class ChatService {
           'session_id': sessionId,
         },
         options: Options(
-          receiveTimeout: const Duration(seconds: 60), // 60 seconds for AI processing
+          receiveTimeout: const Duration(seconds: 60),
         ),
       );
 
       if (response.data['success']) {
+        // Invalidate message cache for this session
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('$_messagesPrefix$sessionId');
+
         return response.data['data']['response'];
       } else {
         throw Exception(response.data['message'] ?? 'Failed to get AI response');
@@ -73,17 +112,39 @@ class ChatService {
     }
   }
 
-  Future<List<Conversation>> getConversations() async {
+  Future<List<Conversation>> getConversations({bool forceRefresh = false}) async {
     try {
+      // Check cache first
+      if (!forceRefresh) {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedData = prefs.getString(_conversationsKey);
+        final cacheTime = prefs.getString(_conversationsCacheTimeKey);
+
+        if (cachedData != null && cacheTime != null) {
+          final cacheDateTime = DateTime.parse(cacheTime);
+          if (DateTime.now().difference(cacheDateTime) < _cacheDuration) {
+            final List<dynamic> conversationsData = jsonDecode(cachedData);
+            return conversationsData.map((data) => Conversation(
+              id: data['id'] ?? '',
+              title: data['title'] ?? '',
+              lastMessage: data['lastMessage'] ?? '',
+              lastMessageTime: DateTime.parse(data['lastMessageTime']),
+              messageCount: data['messageCount'] ?? 0,
+            )).toList();
+          }
+        }
+      }
+
+      // Fetch from API
       final response = await _apiClient.get('/ai/conversations');
 
       if (response.data['success'] == true) {
         final List<dynamic> conversationsData = response.data['data'] ?? [];
         if (conversationsData.isEmpty) {
-          return []; // Return empty list if no conversations
+          return [];
         }
 
-        return conversationsData.map((data) => Conversation(
+        final conversations = conversationsData.map((data) => Conversation(
           id: data['session_id'] ?? '',
           title: _formatConversationTitle(
             data['last_message_at'] != null || data['last_message_time'] != null
@@ -96,17 +157,30 @@ class ChatService {
             : DateTime.now(),
           messageCount: data['message_count'] ?? 0,
         )).toList();
+
+        // Cache conversations
+        final prefs = await SharedPreferences.getInstance();
+        final cacheData = conversations.map((conv) => {
+          'id': conv.id,
+          'title': conv.title,
+          'lastMessage': conv.lastMessage,
+          'lastMessageTime': conv.lastMessageTime.toIso8601String(),
+          'messageCount': conv.messageCount,
+        }).toList();
+        await prefs.setString(_conversationsKey, jsonEncode(cacheData));
+        await prefs.setString(_conversationsCacheTimeKey, DateTime.now().toIso8601String());
+
+        return conversations;
       } else {
-        return []; // Return empty list instead of throwing
+        return [];
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 500) {
-        // For now, return empty list until backend is fixed
         return [];
       }
-      return []; // Return empty list instead of crashing
+      return [];
     } catch (e) {
-      return []; // Return empty list instead of crashing
+      return [];
     }
   }
 
@@ -115,12 +189,33 @@ class ChatService {
       final response = await _apiClient.dio.delete('/ai/conversations/$sessionId');
 
       if (response.data['success'] == true) {
+        // Clear cache for this conversation
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('$_messagesPrefix$sessionId');
+        await prefs.remove(_conversationsKey); // Invalidate conversations list
+        await prefs.remove(_conversationsCacheTimeKey);
+
         return true;
       } else {
         return false;
       }
     } catch (e) {
       return false;
+    }
+  }
+
+  /// Clear all chat caches (for logout)
+  Future<void> clearCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+
+    // Remove all message caches and conversation cache
+    for (final key in keys) {
+      if (key.startsWith(_messagesPrefix) ||
+          key == _conversationsKey ||
+          key == _conversationsCacheTimeKey) {
+        await prefs.remove(key);
+      }
     }
   }
 

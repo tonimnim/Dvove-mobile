@@ -1,10 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import '../../posts/screens/home_screen.dart';
 import '../../../core/services/fcm_service.dart';
+import '../../../core/services/intelligent_cache_service.dart';
+import '../../../firebase_options.dart';
+import '../../../main.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,8 +25,14 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
-    // Wait for 2 seconds to show splash
-    await Future.delayed(const Duration(seconds: 3));
+    // Initialize Firebase
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+    if (!mounted) return;
+
+    // Initialize FCM with navigator key and cache service (non-blocking)
+    await FcmService.instance.initialize(navigatorKey: navigatorKey);
+    IntelligentCacheService.instance.initialize();
 
     if (!mounted) return;
 

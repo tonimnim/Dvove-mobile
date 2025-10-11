@@ -109,7 +109,6 @@ class ConstitutionDatabase {
   Future<List<ConstitutionChapter>?> getChapters() async {
     // Level 1: Memory cache (instant)
     if (_chaptersCache != null) {
-      print('📦 [CONSTITUTION] Chapters from MEMORY cache');
       return _chaptersCache;
     }
 
@@ -118,7 +117,6 @@ class ConstitutionDatabase {
     final List<Map<String, dynamic>> maps = await db.query('chapters');
 
     if (maps.isNotEmpty) {
-      print('💾 [CONSTITUTION] Chapters from DISK cache');
       _chaptersCache = maps.map((map) => ConstitutionChapter(
         id: int.parse(map['id']),
         rawId: map['raw_id'],
@@ -157,14 +155,12 @@ class ConstitutionDatabase {
 
     await batch.commit(noResult: true);
     _chaptersCache = chapters; // Update memory cache
-    print('✅ [CONSTITUTION] Saved ${chapters.length} chapters to cache');
   }
 
   /// Get single article with caching
   Future<ConstitutionArticle?> getArticle(String articleId) async {
     // Level 1: Memory cache
     if (_articlesCache.containsKey(articleId)) {
-      print('📦 [CONSTITUTION] Article $articleId from MEMORY cache');
       return _articlesCache[articleId];
     }
 
@@ -178,7 +174,6 @@ class ConstitutionDatabase {
     );
 
     if (maps.isNotEmpty) {
-      print('💾 [CONSTITUTION] Article $articleId from DISK cache');
       final article = _mapToArticle(maps[0]);
       _articlesCache[articleId] = article; // Update memory cache
       return article;
@@ -191,7 +186,6 @@ class ConstitutionDatabase {
   Future<List<ConstitutionArticle>?> getChapterArticles(String chapterId) async {
     // Level 1: Memory cache
     if (_chapterArticlesCache.containsKey(chapterId)) {
-      print('📦 [CONSTITUTION] Chapter $chapterId articles from MEMORY cache');
       return _chapterArticlesCache[chapterId];
     }
 
@@ -204,7 +198,6 @@ class ConstitutionDatabase {
     );
 
     if (maps.isNotEmpty) {
-      print('💾 [CONSTITUTION] Chapter $chapterId articles from DISK cache');
       final articles = maps.map((map) => _mapToArticle(map)).toList();
       _chapterArticlesCache[chapterId] = articles; // Update memory cache
       return articles;
@@ -268,8 +261,6 @@ class ConstitutionDatabase {
     for (final article in articles) {
       _articlesCache[article.rawId] = article;
     }
-
-    print('✅ [CONSTITUTION] Saved ${articles.length} articles for chapter $chapterId to cache');
   }
 
   /// Convert article map to object
@@ -304,7 +295,6 @@ class ConstitutionDatabase {
       // Use dart:convert to serialize
       return jsonEncode(clausesJson);
     } catch (e) {
-      print('Error serializing clauses: $e');
       return '[]';
     }
   }
@@ -326,7 +316,6 @@ class ConstitutionDatabase {
       final List<dynamic> clausesData = jsonDecode(json);
       return clausesData.map((data) => ArticleClause.fromJson(data as Map<String, dynamic>)).toList();
     } catch (e) {
-      print('Error deserializing clauses: $e');
       return [];
     }
   }

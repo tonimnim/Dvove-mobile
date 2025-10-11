@@ -3,15 +3,19 @@ import 'package:flutter/material.dart';
 class PostTypeSelector extends StatelessWidget {
   final String selectedType;
   final String? selectedPriority;
+  final String selectedScope;
   final Function(String) onTypeChanged;
   final Function(String?) onPriorityChanged;
+  final Function(String) onScopeChanged;
 
   const PostTypeSelector({
     super.key,
     required this.selectedType,
     this.selectedPriority,
+    required this.selectedScope,
     required this.onTypeChanged,
     required this.onPriorityChanged,
+    required this.onScopeChanged,
   });
 
   @override
@@ -101,6 +105,49 @@ class PostTypeSelector extends StatelessWidget {
               ],
             ),
           ),
+
+        // Job scope selector (only for jobs)
+        if (selectedType == 'job')
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Job Visibility',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ScopeOption(
+                        scope: 'county',
+                        label: 'County Only',
+                        description: 'Your county only',
+                        isSelected: selectedScope == 'county',
+                        onSelected: () => onScopeChanged('county'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ScopeOption(
+                        scope: 'national',
+                        label: 'National',
+                        description: 'All 47 counties',
+                        isSelected: selectedScope == 'national',
+                        onSelected: () => onScopeChanged('national'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -167,6 +214,74 @@ class _PriorityChip extends StatelessWidget {
       selectedColor: color,
       backgroundColor: color.withOpacity(0.1),
       showCheckmark: false,
+    );
+  }
+}
+
+class _ScopeOption extends StatelessWidget {
+  final String scope;
+  final String label;
+  final String description;
+  final bool isSelected;
+  final VoidCallback onSelected;
+
+  const _ScopeOption({
+    required this.scope,
+    required this.label,
+    required this.description,
+    required this.isSelected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onSelected,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.black : Colors.white,
+          border: Border.all(
+            color: isSelected ? Colors.black : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  size: 20,
+                  color: isSelected ? Colors.white : Colors.grey.shade600,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : Colors.black,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Text(
+                description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

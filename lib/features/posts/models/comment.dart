@@ -7,6 +7,10 @@ class Comment {
   final bool? isMine;
   final List<String> mediaUrls; // Added for ad images
 
+  // Voting fields
+  final int score; // Net votes (can be positive, zero, or negative)
+  final String? userVote; // Current user's vote: 'upvote', 'downvote', or null
+
   // Ad-specific fields
   final String? itemType; // "ad" if this is an ad, null for regular comments
   final String? adType; // "featured", "county", "national"
@@ -21,6 +25,8 @@ class Comment {
     required this.humanTime,
     this.isMine,
     this.mediaUrls = const [],
+    this.score = 0,
+    this.userVote,
     this.itemType,
     this.adType,
     this.clickUrl,
@@ -28,35 +34,12 @@ class Comment {
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) {
-    // Parse media URLs if present
+    // Parse media URLs
     List<String> mediaUrls = [];
-    if (json['media_urls'] != null) {
+    if (json['media_urls'] != null && json['media_urls'] is List) {
       mediaUrls = List<String>.from(json['media_urls']);
     }
 
-    // Handle ads in comments (similar to Post model)
-    if (json['item_type'] == 'ad') {
-      return Comment(
-        id: json['id'],
-        content: json['content'] ?? '',
-        user: CommentUser(
-          id: 0, // Special ID for ads
-          username: json['advertiser_name'] ?? 'Sponsored',
-          isOfficial: true, // Ads are "official"
-          profilePhoto: null,
-        ),
-        createdAt: DateTime.now(),
-        humanTime: 'sponsored',
-        isMine: false,
-        mediaUrls: mediaUrls,
-        itemType: json['item_type'],
-        adType: json['ad_type'],
-        clickUrl: json['click_url'],
-        advertiserName: json['advertiser_name'],
-      );
-    }
-
-    // Regular comment
     return Comment(
       id: json['id'],
       content: json['content'],
@@ -65,10 +48,8 @@ class Comment {
       humanTime: json['human_time'],
       isMine: json['is_mine'],
       mediaUrls: mediaUrls,
-      itemType: json['item_type'],
-      adType: json['ad_type'],
-      clickUrl: json['click_url'],
-      advertiserName: json['advertiser_name'],
+      score: json['score'] ?? 0,
+      userVote: json['user_vote'],
     );
   }
 
@@ -81,6 +62,8 @@ class Comment {
       'human_time': humanTime,
       'is_mine': isMine,
       'media_urls': mediaUrls,
+      'score': score,
+      'user_vote': userVote,
       'item_type': itemType,
       'ad_type': adType,
       'click_url': clickUrl,
@@ -96,6 +79,8 @@ class Comment {
     String? humanTime,
     bool? isMine,
     List<String>? mediaUrls,
+    int? score,
+    String? userVote,
     String? itemType,
     String? adType,
     String? clickUrl,
@@ -109,6 +94,8 @@ class Comment {
       humanTime: humanTime ?? this.humanTime,
       isMine: isMine ?? this.isMine,
       mediaUrls: mediaUrls ?? this.mediaUrls,
+      score: score ?? this.score,
+      userVote: userVote ?? this.userVote,
       itemType: itemType ?? this.itemType,
       adType: adType ?? this.adType,
       clickUrl: clickUrl ?? this.clickUrl,
@@ -166,6 +153,7 @@ class CommentUser {
   final String? username;
   final String? profilePhoto;
   final bool isOfficial;
+  final bool isVerified; // Has active subscription (for blue checkmark)
   final String? officialName;
 
   CommentUser({
@@ -173,6 +161,7 @@ class CommentUser {
     this.username,
     this.profilePhoto,
     required this.isOfficial,
+    this.isVerified = false,
     this.officialName,
   });
 
@@ -187,6 +176,7 @@ class CommentUser {
       username: json['username'],
       profilePhoto: json['profile_photo'],
       isOfficial: json['is_official'] ?? false,
+      isVerified: json['is_verified'] ?? false,
       officialName: json['official_name'],
     );
   }
@@ -197,6 +187,7 @@ class CommentUser {
       'username': username,
       'profile_photo': profilePhoto,
       'is_official': isOfficial,
+      'is_verified': isVerified,
       'official_name': officialName,
     };
   }

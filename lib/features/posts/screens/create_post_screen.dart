@@ -24,9 +24,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final PostsService _postsService = PostsService();
   String _selectedType = 'announcement';
   String? _priority;
+  String _selectedScope = 'county'; // Default to county scope
   DateTime? _expiresAt;
   final List<File> _selectedImages = [];
+  final List<String> _existingImageUrls = [];
   bool _isPosting = false;
+  bool _commentsEnabled = true; // Default to comments enabled
   bool get isEditing => widget.postToEdit != null;
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -41,6 +44,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       _selectedType = widget.postToEdit!.type;
       _priority = widget.postToEdit!.priority;
       _expiresAt = widget.postToEdit!.expiresAt;
+      _existingImageUrls.addAll(widget.postToEdit!.mediaUrls);
+      _commentsEnabled = widget.postToEdit!.commentsEnabled;
     }
   }
 
@@ -49,7 +54,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     final hasContent = _contentController.text.trim().isNotEmpty ||
-        _selectedImages.isNotEmpty;
+        _selectedImages.isNotEmpty ||
+        _existingImageUrls.isNotEmpty;
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -80,7 +86,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16, top: 12, bottom: 12),
             child: TextButton(
-              onPressed: hasContent && !_isPosting ? (isEditing ? _updatePost : _createPost) : null,
+              onPressed: hasContent && !_isPosting ? (isEditing ? _showUpdateConfirmation : _showPostConfirmation) : null,
               style: TextButton.styleFrom(
                 backgroundColor: hasContent ? Colors.black : Colors.grey.shade400,
                 foregroundColor: Colors.white,
@@ -112,10 +118,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
       body: Column(
         children: [
-          // Post type selector with priority
+          // Post type selector with priority and scope
           PostTypeSelector(
             selectedType: _selectedType,
             selectedPriority: _priority,
+            selectedScope: _selectedScope,
             onTypeChanged: (type) {
               setState(() {
                 _selectedType = type;
@@ -125,11 +132,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 } else {
                   _priority = null;
                 }
+                // Reset scope to county when switching away from job
+                if (type != 'job') {
+                  _selectedScope = 'county';
+                }
               });
             },
             onPriorityChanged: (priority) {
               setState(() {
                 _priority = priority;
+              });
+            },
+            onScopeChanged: (scope) {
+              setState(() {
+                _selectedScope = scope;
               });
             },
           ),
@@ -140,10 +156,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               user: user,
               contentController: _contentController,
               selectedImages: _selectedImages,
+              existingImageUrls: _existingImageUrls,
               onContentChanged: () => setState(() {}),
               onImageRemoved: (index) {
                 setState(() {
                   _selectedImages.removeAt(index);
+                });
+              },
+              onExistingImageRemoved: (index) {
+                setState(() {
+                  _existingImageUrls.removeAt(index);
                 });
               },
               expiresAt: _expiresAt,
@@ -196,7 +218,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
-    if (_selectedImages.length >= 4) {
+    final totalImages = _selectedImages.length + _existingImageUrls.length;
+    if (totalImages >= 4) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Maximum 4 images allowed'),
@@ -211,7 +234,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (images.isNotEmpty) {
       // Convert XFile to File
       final List<File> imageFiles = images
-          .take(4 - _selectedImages.length)
+          .take(4 - totalImages)
           .map((xFile) => File(xFile.path))
           .toList();
 
@@ -241,23 +264,161 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  Future<void> _showPostConfirmation() async {
+    bool tempCommentsEnabled = _commentsEnabled;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Colors.grey.shade100,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Allow Comments',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  Transform.scale(
+                    scale: 0.85,
+                    child: Switch(
+                      value: tempCommentsEnabled,
+                      activeColor: const Color(0xFF01775A),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          tempCommentsEnabled = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey.withOpacity(0.3),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                minimumSize: const Size(double.infinity, 40),
+                elevation: 0,
+              ),
+              child: const Text('Post', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _commentsEnabled = tempCommentsEnabled;
+      });
+      await _createPost();
+    }
+  }
+
+  Future<void> _showUpdateConfirmation() async {
+    bool tempCommentsEnabled = _commentsEnabled;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Colors.grey.shade100,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Allow Comments',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  Transform.scale(
+                    scale: 0.85,
+                    child: Switch(
+                      value: tempCommentsEnabled,
+                      activeColor: const Color(0xFF01775A),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          tempCommentsEnabled = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey.withOpacity(0.3),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                minimumSize: const Size(double.infinity, 40),
+                elevation: 0,
+              ),
+              child: const Text('Update', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _commentsEnabled = tempCommentsEnabled;
+      });
+      await _updatePost();
+    }
+  }
 
   Future<void> _updatePost() async {
     final content = _contentController.text.trim();
 
-    if (content.isEmpty) return;
+    if (content.isEmpty && _selectedImages.isEmpty && _existingImageUrls.isEmpty) return;
 
     setState(() {
       _isPosting = true;
     });
 
     try {
+      final List<String>? newImagePaths = _selectedImages.isNotEmpty
+          ? _selectedImages.map((file) => file.path).toList()
+          : null;
+
       final result = await _postsService.updatePost(
         postId: widget.postToEdit!.id,
         content: content,
         type: _selectedType,
         priority: _priority,
         expiresAt: _expiresAt,
+        newImagePaths: newImagePaths,
+        keepImageUrls: _existingImageUrls,
+        commentsEnabled: _commentsEnabled,
       );
 
       if (mounted) {
@@ -341,9 +502,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final post = await postsProvider.createPostOptimistic(
       content: content,
       type: _selectedType,
+      scope: _selectedType == 'job' ? _selectedScope : null,
       imagePaths: imagePaths,
       expiresAt: _selectedType == 'job' ? _expiresAt : null,
       priority: _priority,
+      commentsEnabled: _commentsEnabled,
     );
 
     if (mounted) {

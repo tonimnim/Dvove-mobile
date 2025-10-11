@@ -7,6 +7,9 @@ class ApiClient {
   late final Dio dio;
   final SecureStorage _storage = SecureStorage();
 
+  // Callback for handling unauthorized errors (401)
+  static Function()? onUnauthorized;
+
   static String get baseUrl => AppConfig.apiUrl;
 
   ApiClient() {
@@ -35,7 +38,8 @@ class ApiClient {
         onError: (error, handler) async {
           if (error.response?.statusCode == 401) {
             await _storage.deleteToken();
-            // TODO: Navigate to login screen
+            // Trigger callback if set (app will handle navigation)
+            onUnauthorized?.call();
           }
           handler.next(error);
         },
@@ -60,6 +64,10 @@ class ApiClient {
       final response = await dio.get(path, queryParameters: queryParameters, options: options);
       return response;
     } on DioException catch (e) {
+      // For validation errors (422), let the original DioException pass through
+      if (e.response?.statusCode == 422) {
+        rethrow;
+      }
       throw _handleError(e);
     }
   }

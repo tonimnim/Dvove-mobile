@@ -70,7 +70,7 @@ class _ChapterArticlesScreenState extends State<ChapterArticlesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -84,6 +84,7 @@ class _ChapterArticlesScreenState extends State<ChapterArticlesScreen> {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
+                color: Colors.white,
               ),
             ),
             Text(
@@ -91,6 +92,7 @@ class _ChapterArticlesScreenState extends State<ChapterArticlesScreen> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ],
@@ -163,9 +165,13 @@ class _ChapterArticlesScreenState extends State<ChapterArticlesScreen> {
 
           // Articles list
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
               itemCount: _articles.length,
+              separatorBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Divider(height: 1, color: Colors.grey.shade200),
+              ),
               itemBuilder: (context, index) {
                 final article = _articles[index];
                 return _buildArticleCard(article);
@@ -178,89 +184,51 @@ class _ChapterArticlesScreenState extends State<ChapterArticlesScreen> {
   }
 
   Widget _buildArticleCard(ConstitutionArticle article) {
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 6,
-      ),
-      child: Material(
+    return InkWell(
+      onTap: () => _navigateToArticle(article),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        elevation: 0,
-        child: InkWell(
-          onTap: () => _navigateToArticle(article),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.grey.shade200,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                // Article number badge
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text(
-                      article.articleNumber,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
+        child: Row(
+          children: [
+            // Article title
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Article ${article.articleNumber}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-
-                // Article title
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Article ${article.articleNumber}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        article.title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    article.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-
-                const SizedBox(width: 12),
-
-                // Arrow icon
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey.shade400,
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+
+            const SizedBox(width: 12),
+
+            // Arrow icon
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+          ],
         ),
       ),
     );

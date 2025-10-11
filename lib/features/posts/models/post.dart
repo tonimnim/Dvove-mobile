@@ -7,7 +7,7 @@ class Post {
   final String? content;
   final String type; // announcement, job, event, alert
   final List<String> mediaUrls;
-  final County county;
+  final County? county; // Nullable for national posts
   final PostAuthor author;
   final int likesCount;
   final int commentsCount;
@@ -114,7 +114,7 @@ class Post {
       content: json['content'],
       type: json['type'] ?? (isAd ? 'image' : 'announcement'),
       mediaUrls: mediaUrls,
-      county: County.fromJson(json['county']),
+      county: json['county'] != null ? County.fromJson(json['county']) : null,
       author: author,
       likesCount: stats['likes'] ?? 0,
       commentsCount: stats['comments'] ?? 0,
@@ -210,7 +210,7 @@ class Post {
       'content': content,
       'type': type,
       'media_urls': mediaUrls,
-      'county': county.toJson(),
+      'county': county?.toJson(),
       'author': author.toJson(),
       'likes_count': likesCount,
       'comments_count': commentsCount,
@@ -239,8 +239,8 @@ class Post {
         'name': author.name,
         'profile_photo': author.profilePhoto,
         'is_official': author.isOfficial,
-        'county_id': county.id,
-        'county_name': county.name,
+        'county_id': county?.id,
+        'county_name': county?.name,
         'priority': priority,
       }),
       'media_data': jsonEncode({
@@ -366,12 +366,14 @@ class PostAuthor {
   final String name;
   final String? profilePhoto;
   final bool isOfficial;
+  final bool isVerified; // Has active subscription (for blue checkmark)
 
   PostAuthor({
     required this.id,
     required this.name,
     this.profilePhoto,
     required this.isOfficial,
+    this.isVerified = false,
   });
 
   factory PostAuthor.fromJson(Map<String, dynamic> json) {
@@ -380,6 +382,7 @@ class PostAuthor {
       name: json['name'] ?? '',
       profilePhoto: json['profile_photo'],
       isOfficial: json['is_official'] ?? false,
+      isVerified: json['is_verified'] ?? false,
     );
   }
 
@@ -389,6 +392,7 @@ class PostAuthor {
       'name': name,
       'profile_photo': profilePhoto,
       'is_official': isOfficial,
+      'is_verified': isVerified,
     };
   }
 }

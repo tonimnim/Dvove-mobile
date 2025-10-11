@@ -18,7 +18,6 @@ class ConstitutionService {
       // Check cache validity first - clear if outdated
       final isCacheValid = await _cache.isCacheValid();
       if (!isCacheValid) {
-        print('🗑️ [CONSTITUTION] Cache invalid - clearing...');
         await _cache.clearCache();
       }
 
@@ -29,7 +28,6 @@ class ConstitutionService {
       }
 
       // Cache miss - fetch from network
-      print('🌐 [CONSTITUTION] Fetching chapters from network...');
       final response = await _apiClient.get('/constitution/chapters');
       final List<dynamic> data = response.data['data'] as List<dynamic>;
       final chapters = data.map((json) => ConstitutionChapter.fromJson(json as Map<String, dynamic>)).toList();
@@ -55,7 +53,6 @@ class ConstitutionService {
       }
 
       // Cache miss - fetch from network
-      print('🌐 [CONSTITUTION] Fetching article $articleId from network...');
       final response = await _apiClient.get('/constitution/articles/$articleId');
       final data = response.data['data'] as Map<String, dynamic>;
 
@@ -85,11 +82,9 @@ class ConstitutionService {
       }
 
       // Cache miss - fetch from network
-      print('🌐 [CONSTITUTION] Fetching chapter $chapterId articles from network...');
       final response = await _apiClient.get('/constitution/chapters/$chapterId/articles');
       final data = response.data['data'] as Map<String, dynamic>;
       final List<dynamic> articlesData = data['articles'] as List<dynamic>;
-      print('📊 [CONSTITUTION] Received ${articlesData.length} articles for chapter $chapterId');
       final articles = articlesData.map((json) => ConstitutionArticle.fromJson(json as Map<String, dynamic>)).toList();
 
       // Save to cache for next time (batch save for efficiency)
@@ -144,16 +139,12 @@ class ConstitutionService {
     final isValid = await _cache.isCacheValid();
 
     if (!isValid) {
-      print('🔄 [CONSTITUTION] App version changed - clearing old cache');
       await _cache.clearCache();
-    } else {
-      print('✅ [CONSTITUTION] Cache is valid for current app version');
     }
   }
 
   /// Clear all cached data (for settings/debug)
   Future<void> clearAllCache() async {
     await _cache.clearCache();
-    print('🗑️ [CONSTITUTION] All cache cleared');
   }
 }

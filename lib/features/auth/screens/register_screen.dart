@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../services/counties_service.dart';
-import '../../posts/screens/home_screen.dart';
 import 'email_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {

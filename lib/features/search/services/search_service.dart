@@ -45,11 +45,15 @@ class SearchService {
       };
     } on DioException catch (e) {
       if (e.response?.statusCode == 422) {
-        throw Exception('Search query is required');
+        // Always show our custom message for validation errors
+        throw Exception('Please enter at least 2 characters');
       }
-      throw Exception('Search failed: ${e.message}');
+      throw Exception('Connection error. Please check your internet.');
     } catch (e) {
-      throw Exception('Search failed: $e');
+      if (e.toString().contains('Exception:')) {
+        rethrow; // Preserve our custom error messages
+      }
+      throw Exception('Search failed. Please try again.');
     }
   }
 }

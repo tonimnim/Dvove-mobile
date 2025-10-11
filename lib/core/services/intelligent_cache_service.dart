@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'memory_manager.dart';
 import '../config/app_config.dart';
@@ -31,10 +29,6 @@ class IntelligentCacheService {
       followRedirects: true,
       maxRedirects: 3,
     );
-
-    if (kDebugMode) {
-      debugPrint('IntelligentCacheService initialized with extended timeouts');
-    }
   }
 
   /// Get image with intelligent caching and resizing
@@ -96,9 +90,6 @@ class IntelligentCacheService {
       }
       return thumbnailData;
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error generating video thumbnail: $e');
-      }
       return null;
     }
   }
@@ -181,9 +172,6 @@ class IntelligentCacheService {
       return await _resizeImage(originalData, maxWidth, maxHeight);
 
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error downloading image $url: $e');
-      }
       return null;
     }
   }
@@ -208,9 +196,6 @@ class IntelligentCacheService {
       return byteData.buffer.asUint8List();
 
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error resizing image: $e');
-      }
       return data; // Return original if resize fails
     }
   }
@@ -256,9 +241,6 @@ class IntelligentCacheService {
       return byteData?.buffer.asUint8List();
 
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error generating thumbnail placeholder: $e');
-      }
       return null;
     }
   }
@@ -272,7 +254,7 @@ class IntelligentCacheService {
   void clearCache() {
     _activeDownloads.clear();
     _preloadQueue.clear();
-    // Note: MemoryManager has its own cleanup
+    MemoryManager.instance.clearAll();
   }
 
   /// Get cache statistics

@@ -59,36 +59,10 @@ class _ChaptersListScreenState extends State<ChaptersListScreen> {
     );
   }
 
-  String _formatChapterNumber(String chapterNumber) {
-    // Convert "1" to "ONE", "2" to "TWO", etc.
-    final Map<String, String> numberWords = {
-      '1': 'ONE',
-      '2': 'TWO',
-      '3': 'THREE',
-      '4': 'FOUR',
-      '5': 'FIVE',
-      '6': 'SIX',
-      '7': 'SEVEN',
-      '8': 'EIGHT',
-      '9': 'NINE',
-      '10': 'TEN',
-      '11': 'ELEVEN',
-      '12': 'TWELVE',
-      '13': 'THIRTEEN',
-      '14': 'FOURTEEN',
-      '15': 'FIFTEEN',
-      '16': 'SIXTEEN',
-      '17': 'SEVENTEEN',
-      '18': 'EIGHTEEN',
-    };
-
-    return numberWords[chapterNumber] ?? chapterNumber.toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
           'Constitution Chapters',
@@ -205,9 +179,12 @@ class _ChaptersListScreenState extends State<ChaptersListScreen> {
       onRefresh: _loadChapters,
       color: AppColors.primary,
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         itemCount: _chapters.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Divider(height: 1, color: Colors.grey.shade200),
+        ),
         itemBuilder: (context, index) {
           final chapter = _chapters[index];
           return _buildChapterCard(chapter);
@@ -220,47 +197,11 @@ class _ChaptersListScreenState extends State<ChaptersListScreen> {
     return GestureDetector(
       onTap: () => _navigateToChapterArticles(chapter),
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.shade200,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        color: Colors.white,
         child: Row(
           children: [
-            // Chapter number badge
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  _formatChapterNumber(chapter.chapterNumber),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    letterSpacing: 0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Chapter title and article count
+            // Chapter title
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,30 +219,27 @@ class _ChaptersListScreenState extends State<ChaptersListScreen> {
                     chapter.title,
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: Colors.black,
                       height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${chapter.articleCount} article${chapter.articleCount != 1 ? 's' : ''}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
                     ),
                   ),
                 ],
               ),
             ),
+
+            const SizedBox(width: 12),
+
+            // Article count (right side)
+            Text(
+              '${chapter.articleCount} article${chapter.articleCount != 1 ? 's' : ''}',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+
+            const SizedBox(width: 8),
 
             // Arrow icon
             Icon(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../auth/models/user.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../services/profile_service.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_info_section.dart';
@@ -28,7 +30,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
+    // Load user from AuthProvider instead of making API call
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.user != null) {
+        setState(() {
+          _user = authProvider.user;
+          _isLoading = false;
+        });
+
+        // Initialize controllers
+        if (_user!.isOfficial) {
+          _officialNameController.text = _user!.officialName ?? '';
+          _officeAddressController.text = _user!.officeAddress ?? '';
+        } else {
+          _usernameController.text = _user!.username ?? '';
+        }
+      }
+    });
   }
 
   @override

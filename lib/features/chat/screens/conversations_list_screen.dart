@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/conversation.dart';
 import '../services/chat_service.dart';
-import 'chat_screen.dart';
 
 class ConversationsListScreen extends StatefulWidget {
   const ConversationsListScreen({super.key});
@@ -21,9 +20,13 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     _loadConversations();
   }
 
-  Future<void> _loadConversations() async {
+  Future<void> _loadConversations({bool forceRefresh = false}) async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      final conversations = await _chatService.getConversations();
+      final conversations = await _chatService.getConversations(forceRefresh: forceRefresh);
       setState(() {
         _conversations = conversations;
         _isLoading = false;
@@ -33,6 +36,10 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _refreshConversations() async {
+    await _loadConversations(forceRefresh: true);
   }
 
   @override
@@ -66,7 +73,9 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                     ],
                   ),
                 )
-              : ListView.builder(
+              : RefreshIndicator(
+                  onRefresh: _refreshConversations,
+                  child: ListView.builder(
                   itemCount: _conversations.length,
                   itemBuilder: (context, index) {
                     final conversation = _conversations[index];
@@ -204,6 +213,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                     );
                   },
                 ),
+              ),
     );
   }
 

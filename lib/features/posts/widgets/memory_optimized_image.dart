@@ -40,6 +40,8 @@ class _MemoryOptimizedImageState extends State<MemoryOptimizedImage>
   Uint8List? _imageData;
   bool _isLoading = true;
   bool _hasError = false;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   bool get wantKeepAlive => _imageData != null; // Keep alive if image loaded
@@ -58,12 +60,18 @@ class _MemoryOptimizedImageState extends State<MemoryOptimizedImage>
       _imageData = null;
       _isLoading = true;
       _hasError = false;
+      _retryCount = 0;
       _loadImage();
     }
   }
 
   Future<void> _loadImage() async {
     if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
 
     try {
       final data = await IntelligentCacheService.instance.getImage(
@@ -79,6 +87,16 @@ class _MemoryOptimizedImageState extends State<MemoryOptimizedImage>
           _isLoading = false;
           _hasError = data == null;
         });
+
+        // Retry logic: if failed and haven't exceeded max retries
+        if (data == null && _retryCount < _maxRetries) {
+          _retryCount++;
+          // Exponential backoff: 1s, 2s, 4s
+          await Future.delayed(Duration(seconds: 1 << (_retryCount - 1)));
+          if (mounted && _imageData == null) {
+            _loadImage();
+          }
+        }
       }
 
     } catch (e) {
@@ -87,6 +105,15 @@ class _MemoryOptimizedImageState extends State<MemoryOptimizedImage>
           _isLoading = false;
           _hasError = true;
         });
+
+        // Retry on error as well
+        if (_retryCount < _maxRetries) {
+          _retryCount++;
+          await Future.delayed(Duration(seconds: 1 << (_retryCount - 1)));
+          if (mounted && _imageData == null) {
+            _loadImage();
+          }
+        }
       }
     }
   }

@@ -31,27 +31,16 @@ class AuthService {
         },
       );
 
-      try {
-        final data = response.data['data'];
+      final data = response.data['data'];
+      final message = response.data['message'];
 
-        final user = User.fromJson(data['user']);
-
-        final message = response.data['message'];
-
-        return {
-          'success': true,
-          'user': user,
-          'message': message,
-          'email_verification_required': data['email_verification_required'],
-          'email': data['email'],
-          'expires_in': data['expires_in'],
-        };
-      } catch (e) {
-        return {
-          'success': false,
-          'message': 'Failed to process registration response: $e',
-        };
-      }
+      return {
+        'success': true,
+        'message': message,
+        'email_verification_required': data['email_verification_required'],
+        'email': data['email'],
+        'expires_in': data['expires_in'],
+      };
     } on DioException catch (e) {
       if (e.response?.statusCode == 422) {
         final responseData = e.response?.data;
@@ -59,18 +48,14 @@ class AuthService {
         final errors = responseData?['errors'];
 
         if (errors != null && errors is Map<String, dynamic>) {
-
-          // Extract user-friendly error messages - handle multiple errors intelligently
           String finalMessage = '';
 
           bool hasUsernameError = errors.containsKey('username') && errors['username'] is List && errors['username'].isNotEmpty;
           bool hasEmailError = errors.containsKey('email') && errors['email'] is List && errors['email'].isNotEmpty;
 
           if (hasUsernameError && hasEmailError) {
-            // Both username and email are taken
             finalMessage = 'Both this username and email are already taken. Please choose different credentials.';
           } else if (hasUsernameError) {
-            // Only username error
             String message = errors['username'].first.toString();
             if (message.contains('already been taken')) {
               finalMessage = 'This username is already taken. Please choose a different username.';
@@ -78,7 +63,6 @@ class AuthService {
               finalMessage = message;
             }
           } else if (hasEmailError) {
-            // Only email error
             String message = errors['email'].first.toString();
             if (message.contains('already been taken')) {
               finalMessage = 'This email address is already registered. Please use a different email or try logging in.';
@@ -86,7 +70,6 @@ class AuthService {
               finalMessage = message;
             }
           } else {
-            // Fallback to first error found
             final firstField = errors.keys.first;
             final firstMessages = errors[firstField];
             if (firstMessages is List && firstMessages.isNotEmpty) {
@@ -114,7 +97,7 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> login({
-    required String login, // Can be username, phone, or email
+    required String login,
     required String password,
   }) async {
     try {
@@ -157,7 +140,6 @@ class AuthService {
         'message': 'Logged out successfully',
       };
     } catch (e) {
-      // Clear local storage even if API call fails
       await _storage.clearAll();
       return {
         'success': true,
@@ -168,7 +150,6 @@ class AuthService {
 
   Future<User?> getCurrentUser({bool forceRefresh = false}) async {
     try {
-      // If not forcing refresh, check cached data first
       if (!forceRefresh) {
         final cachedUserData = await _storage.getUserData();
         if (cachedUserData != null) {
@@ -176,15 +157,17 @@ class AuthService {
         }
       }
 
-      // Fetch fresh data from API
       final response = await _apiClient.get(ApiEndpoints.user);
       final user = User.fromJson(response.data['data']);
 
-      // Cache the fresh user data
       await _storage.saveUserData(jsonEncode(response.data['data']));
 
       return user;
     } catch (e) {
+      final cachedUserData = await _storage.getUserData();
+      if (cachedUserData != null) {
+        return User.fromJson(jsonDecode(cachedUserData));
+      }
       return null;
     }
   }
@@ -202,8 +185,18 @@ class AuthService {
         },
       );
 
+      final data = response.data['data'];
+      final token = data['token'];
+      final user = User.fromJson(data['user']);
+
+      // Save token and user data
+      await _storage.saveToken(token);
+      await _storage.saveUserData(jsonEncode(data['user']));
+
       return {
         'success': true,
+        'user': user,
+        'token': token,
         'message': response.data['message'] ?? 'Email verified successfully',
       };
     } catch (e) {
@@ -248,16 +241,162 @@ class AuthService {
         data: {'fcm_token': fcmToken},
       );
     } catch (e) {
-      // Silently fail - FCM token update is not critical
     }
   }
 
-  // Save updated user data to local storage
   Future<void> saveUserToStorage(User user) async {
     try {
       await _storage.saveUserData(jsonEncode(user.toJson()));
     } catch (e) {
-      // Silently fail - non-critical
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteAccount() async {
+    try {
+      await _apiClient.delete('/auth/account');
+      await _storage.clearAll();
+
+      return {
+        'success': true,
+        'message': 'Account deleted successfully',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString().replaceAll('Exception: ', ''),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/auth/change-password',
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+          'new_password_confirmation': newPasswordConfirmation,
+        },
+      );
+
+      return {
+        'success': true,
+        'message': response.data['message'] ?? 'Password changed successfully',
+      };
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data['errors'];
+        if (errors != null && errors is Map<String, dynamic>) {
+          final firstField = errors.keys.first;
+          final firstMessages = errors[firstField];
+          if (firstMessages is List && firstMessages.isNotEmpty) {
+            return {
+              'success': false,
+              'message': firstMessages.first.toString(),
+            };
+          }
+        }
+      }
+
+      return {
+        'success': false,
+        'message': e.response?.data?['message'] ?? 'Failed to change password',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString().replaceAll('Exception: ', ''),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> forgotPassword({required String email}) async {
+    try {
+      final response = await _apiClient.post(
+        '/auth/forgot-password',
+        data: {'email': email},
+      );
+
+      return {
+        'success': true,
+        'message': response.data['message'] ?? 'Password reset code sent to your email',
+      };
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data['errors'];
+        if (errors != null && errors is Map<String, dynamic>) {
+          final firstField = errors.keys.first;
+          final firstMessages = errors[firstField];
+          if (firstMessages is List && firstMessages.isNotEmpty) {
+            return {
+              'success': false,
+              'message': firstMessages.first.toString(),
+            };
+          }
+        }
+      }
+
+      return {
+        'success': false,
+        'message': e.response?.data?['message'] ?? 'Failed to send reset code',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString().replaceAll('Exception: ', ''),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/auth/reset-password',
+        data: {
+          'email': email,
+          'code': code,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        },
+      );
+
+      return {
+        'success': true,
+        'message': response.data['message'] ?? 'Password reset successfully',
+      };
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data['errors'];
+        if (errors != null && errors is Map<String, dynamic>) {
+          final firstField = errors.keys.first;
+          final firstMessages = errors[firstField];
+          if (firstMessages is List && firstMessages.isNotEmpty) {
+            return {
+              'success': false,
+              'message': firstMessages.first.toString(),
+            };
+          }
+        }
+      }
+
+      return {
+        'success': false,
+        'message': e.response?.data?['message'] ?? 'Failed to reset password',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString().replaceAll('Exception: ', ''),
+      };
     }
   }
 }

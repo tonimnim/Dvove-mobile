@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/comment.dart';
-import '../../../shared/widgets/user_avatar.dart';
+import '../../../core/config/app_config.dart';
 
 class AdCommentItem extends StatelessWidget {
   final Comment comment;
@@ -24,7 +24,6 @@ class AdCommentItem extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Ad banner
             Row(
               children: [
                 Container(
@@ -43,37 +42,32 @@ class AdCommentItem extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (comment.advertiserName != null)
-                  Expanded(
-                    child: Text(
-                      'Sponsored by ${comment.advertiserName}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.amber.shade800,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                Text(
+                  'Sponsored',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w400,
                   ),
-                if (comment.hasClickUrl) ...[
-                  const Spacer(),
-                  Icon(
-                    Icons.open_in_new,
-                    size: 14,
-                    color: Colors.amber.shade700,
-                  ),
-                ],
+                ),
               ],
             ),
-            const SizedBox(height: 8),
-
-            // Ad content
+            const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                UserAvatar(
-                  user: comment.user,
-                  radius: 16,
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.storefront,
+                    color: Colors.amber.shade700,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -82,30 +76,24 @@ class AdCommentItem extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            comment.user.displayName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                          Expanded(
+                            child: Text(
+                              comment.advertiserName ?? 'Sponsored',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
                             Icons.verified,
-                            size: 14,
-                            color: Colors.amber.shade700,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '· ${comment.humanTime}',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12,
-                            ),
+                            size: 16,
+                            color: Colors.blue.shade600,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       if (comment.content.isNotEmpty) ...[
                         Text(
                           comment.content,
@@ -114,40 +102,33 @@ class AdCommentItem extends StatelessWidget {
                             height: 1.3,
                           ),
                         ),
-                        if (comment.hasMedia) const SizedBox(height: 8),
+                        const SizedBox(height: 8),
                       ],
-                      // Twitter-style image card
                       if (comment.hasMedia)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            constraints: BoxConstraints(
-                              maxHeight: 200, // Small card height
-                              maxWidth: double.infinity,
-                            ),
-                            child: CachedNetworkImage(
-                              imageUrl: comment.mediaUrls.first,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              placeholder: (context, url) => Container(
-                                height: 200,
-                                color: Colors.grey.shade200,
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.amber,
-                                  ),
+                          child: CachedNetworkImage(
+                            imageUrl: AppConfig.fixMediaUrl(comment.mediaUrls.first),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            placeholder: (context, url) => Container(
+                              height: 200,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.amber,
                                 ),
                               ),
-                              errorWidget: (context, url, error) => Container(
-                                height: 200,
-                                color: Colors.grey.shade200,
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.broken_image,
-                                    color: Colors.grey,
-                                    size: 32,
-                                  ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              height: 200,
+                              color: Colors.grey.shade200,
+                              child: Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey.shade400,
+                                  size: 32,
                                 ),
                               ),
                             ),
@@ -165,7 +146,6 @@ class AdCommentItem extends StatelessWidget {
   }
 
   void _handleAdClick(BuildContext context) async {
-    // Show feedback to user
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Opening ad...'),
@@ -175,7 +155,6 @@ class AdCommentItem extends StatelessWidget {
       ),
     );
 
-    // Open click URL
     try {
       final Uri url = Uri.parse(comment.clickUrl!);
       if (await canLaunchUrl(url)) {

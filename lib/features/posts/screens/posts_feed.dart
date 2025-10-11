@@ -8,9 +8,10 @@ import '../../../shared/widgets/ad_trackable_widget.dart';
 import '../../../core/services/ad_tracking_service.dart';
 
 class PostsFeed extends StatefulWidget {
-  final String? postType; // Filter by post type (job, event, etc.)
+  final String? postType;
+  final String? excludeType;
 
-  const PostsFeed({super.key, this.postType});
+  const PostsFeed({super.key, this.postType, this.excludeType});
 
   @override
   State<PostsFeed> createState() => _PostsFeedState();
@@ -18,7 +19,6 @@ class PostsFeed extends StatefulWidget {
 
 class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
-  String? _lastPostType;
 
   @override
   bool get wantKeepAlive => true;
@@ -27,7 +27,6 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _lastPostType = widget.postType;
 
     // Schedule initialization after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,7 +59,6 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
     super.didUpdateWidget(oldWidget);
     // Re-initialize feed when postType changes
     if (oldWidget.postType != widget.postType) {
-      _lastPostType = widget.postType;
       _initializeFeed();
     }
   }
@@ -74,6 +72,7 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
     await postsProvider.initializeFeed(
       countyId: authProvider.user?.countyId,
       type: widget.postType,
+      excludeType: widget.excludeType,
     );
   }
 
@@ -87,6 +86,7 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
         postsProvider.loadMorePosts(
           countyId: authProvider.user?.countyId,
           type: widget.postType,
+          excludeType: widget.excludeType,
         );
       }
     }
@@ -99,6 +99,7 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
     await postsProvider.refreshPosts(
       countyId: authProvider.user?.countyId,
       type: widget.postType,
+      excludeType: widget.excludeType,
     );
   }
 
@@ -108,31 +109,63 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
     // Use the global provider
     return Consumer<PostsProvider>(
       builder: (context, postsProvider, child) {
-        // Get posts with featured ad at top, filtered by postType
-        var allPosts = postsProvider.postsWithFeaturedAd;
-
-        // Filter posts if this feed has a specific postType (e.g., 'job')
-        if (widget.postType != null) {
-          allPosts = allPosts.where((post) =>
-            post.isAd || post.type == widget.postType
-          ).toList();
-        }
+        // Get posts for THIS feed's type with excludeType filter
+        var allPosts = postsProvider.getPostsForFeed(
+          widget.postType,
+          excludeType: widget.excludeType,
+        );
 
         final displayPosts = allPosts;
 
-        // Initial loading state
+        // Initial loading state (no cached posts)
         if (postsProvider.isLoading && displayPosts.isEmpty) {
           return _buildShimmerLoading();
         }
 
-        // Error state
+        // Error state (only if no cached posts)
         if (postsProvider.errorMessage != null && displayPosts.isEmpty) {
           return _buildErrorState(postsProvider.errorMessage!);
         }
 
-        // Empty state
+        // Empty state (no posts and not loading)
         if (!postsProvider.isLoading && displayPosts.isEmpty) {
           return _buildEmptyState();
+        }
+
+        // Refreshing state (has cached posts but loading new ones)
+        if (postsProvider.isLoading && displayPosts.isNotEmpty) {
+          return Stack(
+            children: [
+              // Show cached posts in background
+              Container(
+                color: Colors.grey.shade100,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: displayPosts.length,
+                  itemBuilder: (context, index) {
+                    final post = displayPosts[index];
+                    if (post.isAd) {
+                      final trackingContext = widget.postType == 'job' ? 'job' : 'home';
+                      return AdTrackableWidget(
+                        adId: post.id,
+                        context: trackingContext,
+                        clickUrl: post.clickUrl,
+                        child: PostCard(post: post),
+                      );
+                    }
+                    return PostCard(key: ValueKey(post.id), post: post);
+                  },
+                ),
+              ),
+              // Show shimmer overlay
+              Container(
+                color: Colors.grey.shade100.withOpacity(0.8),
+                child: _buildShimmerLoading(),
+              ),
+            ],
+          );
         }
 
         // Posts list with pull to refresh
@@ -168,7 +201,7 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
                   );
                 }
 
-                return PostCard(post: post);
+                return PostCard(key: ValueKey(post.id), post: post);
               },
             ),
           ),

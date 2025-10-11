@@ -7,9 +7,11 @@ class PostContentComposer extends StatelessWidget {
   final User? user;
   final TextEditingController contentController;
   final List<File> selectedImages;
+  final List<String> existingImageUrls;
   final File? selectedVideo;
   final VoidCallback onContentChanged;
   final Function(int) onImageRemoved;
+  final Function(int)? onExistingImageRemoved;
   final VoidCallback? onVideoRemoved;
   final DateTime? expiresAt;
   final String selectedType;
@@ -20,18 +22,16 @@ class PostContentComposer extends StatelessWidget {
     required this.user,
     required this.contentController,
     required this.selectedImages,
+    this.existingImageUrls = const [],
     this.selectedVideo,
     required this.onContentChanged,
     required this.onImageRemoved,
+    this.onExistingImageRemoved,
     this.onVideoRemoved,
     this.expiresAt,
     required this.selectedType,
     this.onSelectExpiryDate,
   });
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,8 +73,10 @@ class PostContentComposer extends StatelessWidget {
                     // Media preview
                     MediaPreviewWidget(
                       selectedImages: selectedImages,
+                      existingImageUrls: existingImageUrls,
                       selectedVideo: selectedVideo,
                       onImageRemoved: onImageRemoved,
+                      onExistingImageRemoved: onExistingImageRemoved,
                       onVideoRemoved: onVideoRemoved,
                     ),
                   ],

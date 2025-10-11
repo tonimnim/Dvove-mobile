@@ -14,181 +14,129 @@ class NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: notification.isRead ? Colors.white : Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: notification.isRead
-                    ? Colors.grey.shade200
-                    : Colors.blue.shade200,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: notification.isRead ? Colors.white : Colors.grey.shade50,
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.grey.shade200,
+                width: 0.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with type badge and time
-                Row(
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Icon only (no badge background)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: _buildTypeIcon(),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildTypeBadge(),
-                    const Spacer(),
-                    if (!notification.isRead)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    const SizedBox(width: 8),
-                    Text(
-                      notification.humanTime,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 8),
-
-                // Title
-                Text(
-                  notification.title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: notification.isRead ? FontWeight.w500 : FontWeight.w600,
-                    color: Colors.black,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                // Body
-                Text(
-                  notification.body,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-
-                // Emergency indicator
-                if (notification.isEmergency) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade300),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    // Title and Time row
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.warning,
-                          color: Colors.red.shade600,
-                          size: 16,
+                        Expanded(
+                          child: Text(
+                            notification.title,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: notification.isRead ? FontWeight.w500 : FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 8),
                         Text(
-                          'EMERGENCY',
+                          notification.humanTime,
                           style: TextStyle(
-                            color: Colors.red.shade600,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 4),
+
+                    // Body
+                    Text(
+                      notification.body,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w400,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Unread indicator
+              if (!notification.isRead)
+                Container(
+                  margin: const EdgeInsets.only(left: 8, top: 4),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade600,
+                    shape: BoxShape.circle,
                   ),
-                ],
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTypeBadge() {
-    Color badgeColor;
-    String badgeText;
-    IconData badgeIcon;
+  Widget _buildTypeIcon() {
+    IconData icon;
+    Color iconColor;
 
     switch (notification.type) {
       case 'alert':
-        badgeColor = notification.isHighPriority ? Colors.red : Colors.orange;
-        badgeText = notification.isHighPriority ? 'ALERT' : 'Alert';
-        badgeIcon = notification.isHighPriority ? Icons.warning : Icons.info;
+        icon = notification.isHighPriority ? Icons.warning : Icons.info;
+        iconColor = notification.isHighPriority ? Colors.red : Colors.orange;
         break;
       case 'new_post':
-        badgeColor = const Color(0xFF01775A);
-        badgeText = 'Job';
-        badgeIcon = Icons.work;
+        icon = Icons.work;
+        iconColor = const Color(0xFF01775A);
         break;
       case 'subscription':
-        badgeColor = Colors.purple;
-        badgeText = 'Subscription';
-        badgeIcon = Icons.star;
+        icon = Icons.star;
+        iconColor = Colors.purple;
         break;
       case 'constitution_daily':
-        badgeColor = const Color(0xFF006600);
-        badgeText = 'Katiba360°';
-        badgeIcon = Icons.gavel;
+        icon = Icons.gavel;
+        iconColor = const Color(0xFF006600);
         break;
       default:
-        badgeColor = Colors.grey;
-        badgeText = 'Update';
-        badgeIcon = Icons.notifications;
+        icon = Icons.notifications;
+        iconColor = Colors.grey.shade600;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: badgeColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            badgeIcon,
-            color: badgeColor,
-            size: 12,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            badgeText,
-            style: TextStyle(
-              color: badgeColor,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
+    return Icon(
+      icon,
+      color: iconColor,
+      size: 20,
     );
   }
 }

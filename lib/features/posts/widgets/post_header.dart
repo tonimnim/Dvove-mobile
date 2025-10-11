@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/post.dart';
@@ -31,36 +30,6 @@ class PostHeader extends StatelessWidget {
     this.isAd = false,
   });
 
-  IconData _getTypeIcon() {
-    switch (type) {
-      case 'announcement':
-        return Icons.campaign_outlined;
-      case 'job':
-        return Icons.work_outline;
-      case 'event':
-        return Icons.event_outlined;
-      case 'alert':
-        return Icons.warning_amber_rounded;
-      default:
-        return Icons.info_outline;
-    }
-  }
-
-  Color _getTypeColor() {
-    switch (type) {
-      case 'announcement':
-        return Colors.blue;
-      case 'job':
-        return Colors.green;
-      case 'event':
-        return Colors.purple;
-      case 'alert':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
   String? _getExpiryText() {
     if (expiresAt == null) return null;
 
@@ -82,16 +51,22 @@ class PostHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final expiryText = _getExpiryText();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Profile photo
-        MemoryOptimizedAvatar(
-          imageUrl: author.profilePhoto,
-          fallbackText: author.name,
-          size: 40,
-        ),
-        const SizedBox(width: 12),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final isCurrentUser = authProvider.user?.id == author.id;
+        final displayPhoto = isCurrentUser
+            ? authProvider.user?.profilePhoto
+            : author.profilePhoto;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MemoryOptimizedAvatar(
+              imageUrl: displayPhoto,
+              fallbackText: author.name,
+              size: 40,
+            ),
+            const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,7 +83,7 @@ class PostHeader extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (author.isOfficial) ...[
+                  if (author.isVerified) ...[
                     const SizedBox(width: 4),
                     Icon(
                       Icons.verified,
@@ -156,7 +131,7 @@ class PostHeader extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        expiryText!,
+                        expiryText,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,
@@ -171,57 +146,51 @@ class PostHeader extends StatelessWidget {
             ],
           ),
         ),
-        // More button - only show for post author and synced posts (NOT for ads)
-        Consumer<AuthProvider>(
-          builder: (context, authProvider, _) {
-            final currentUser = authProvider.user;
-            final isPostOwner = currentUser != null &&
-                               currentUser.id == author.id;
-
-            // Don't show menu for ads, local/pending posts, or if not the owner
-            if (isAd || !isPostOwner || isLocalPost) return SizedBox.shrink();
-
-            return PopupMenuButton<String>(
-              icon: Icon(
-                Icons.more_horiz,
-                color: Colors.grey.shade600,
-                size: 20,
+            // More button - only show for post author and synced posts (NOT for ads)
+            if (isAd || !isCurrentUser || isLocalPost)
+              const SizedBox.shrink()
+            else
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_horiz,
+                  color: Colors.grey.shade600,
+                  size: 20,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onSelected: (value) {
+                  if (value == 'edit' && onEdit != null) {
+                    onEdit!();
+                  } else if (value == 'delete' && onDelete != null) {
+                    onDelete!();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20, color: Colors.black),
+                        SizedBox(width: 12),
+                        Text('Edit post'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 20, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text('Delete post', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              onSelected: (value) {
-                if (value == 'edit' && onEdit != null) {
-                  onEdit!();
-                } else if (value == 'delete' && onDelete != null) {
-                  onDelete!();
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20, color: Colors.black),
-                      SizedBox(width: 12),
-                      Text('Edit post'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 20, color: Colors.red),
-                      SizedBox(width: 12),
-                      Text('Delete post', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

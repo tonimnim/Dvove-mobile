@@ -31,7 +31,8 @@
 -keep class * implements com.google.gson.JsonDeserializer
 
 # Keep model classes (for JSON serialization)
--keep class com.example.county_connect.**.models.** { *; }
+# Note: Models are in Dart/Flutter, not native Kotlin
+# -keep class com.dvove.app.**.models.** { *; }
 
 # Image Picker
 -keep class androidx.lifecycle.** { *; }
@@ -57,6 +58,18 @@
 
 # Shared Preferences
 -keep class io.flutter.plugins.sharedpreferences.** { *; }
+
+# Google Play Core - Fix R8 missing classes error
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }
+
+# SLF4J - Fix R8 missing classes error
+-dontwarn org.slf4j.**
+-keep class org.slf4j.** { *; }
+
+# Pusher Channels
+-keep class com.pusher.** { *; }
+-dontwarn com.pusher.**
 
 # Remove logging in release
 -assumenosideeffects class android.util.Log {

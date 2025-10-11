@@ -1,6 +1,5 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import '../models/post.dart';
 
 class PostsDatabase {
   static final PostsDatabase instance = PostsDatabase._init();
@@ -67,6 +66,7 @@ class PostsDatabase {
 
   Future<List<Map<String, dynamic>>> getPosts({
     String? type,
+    String? excludeType,
     int limit = 100,
     int offset = 0,
   }) async {
@@ -75,9 +75,15 @@ class PostsDatabase {
     String whereClause = '';
     List<dynamic> whereArgs = [];
 
-    if (type != null) {
+    if (type != null && excludeType != null) {
+      whereClause = 'WHERE type = ? AND type != ?';
+      whereArgs = [type, excludeType];
+    } else if (type != null) {
       whereClause = 'WHERE type = ?';
       whereArgs = [type];
+    } else if (excludeType != null) {
+      whereClause = 'WHERE type != ?';
+      whereArgs = [excludeType];
     }
 
     final result = await db.rawQuery('''
@@ -183,6 +189,12 @@ class PostsDatabase {
     }
 
     await batch.commit(noResult: true);
+  }
+
+  /// Clear all posts from database
+  Future<void> clearAllPosts() async {
+    final db = await database;
+    await db.delete('posts');
   }
 
   Future<void> close() async {

@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/comment.dart';
 import '../services/posts_service.dart';
-import '../../../shared/widgets/user_avatar.dart';
+import '../providers/comments_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/models/user.dart';
+import 'memory_optimized_image.dart';
 
 class CommentItem extends StatefulWidget {
+  final String postId;
   final Comment comment;
   final VoidCallback onDeleted;
   final Function(Comment) onEdited;
 
   const CommentItem({
     super.key,
+    required this.postId,
     required this.comment,
     required this.onDeleted,
     required this.onEdited,
@@ -23,7 +29,6 @@ class _CommentItemState extends State<CommentItem> {
   final _editController = TextEditingController();
   final _postsService = PostsService();
   bool _isEditing = false;
-  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -101,20 +106,45 @@ class _CommentItemState extends State<CommentItem> {
   }
 
   Future<void> _deleteComment() async {
-    setState(() {
-      _isDeleting = true;
-    });
+    final commentsProvider = Provider.of<CommentsProvider>(context, listen: false);
 
-    final result = await _postsService.deleteComment(widget.comment.id);
+    // Save original state for rollback
+    final deletedComment = widget.comment;
+    final comments = commentsProvider.getComments(widget.postId);
+    final originalIndex = comments.indexWhere((c) => c.id == widget.comment.id);
 
-    if (result['success'] && mounted) {
-      widget.onDeleted();
-    }
+    // Optimistic update - remove from UI immediately
+    commentsProvider.deleteComment(widget.postId, widget.comment.id);
+    widget.onDeleted();
 
-    if (mounted) {
-      setState(() {
-        _isDeleting = false;
-      });
+    // Call API and handle response
+    try {
+      final result = await _postsService.deleteComment(widget.comment.id);
+
+      if (!result['success']) {
+        // API returned error - rollback to original state
+        if (mounted) {
+          commentsProvider.insertCommentAt(widget.postId, deletedComment, originalIndex);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Failed to delete comment'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      // On success, comment stays deleted (already removed optimistically)
+    } catch (error) {
+      // Network error or exception - rollback to original state
+      if (mounted) {
+        commentsProvider.insertCommentAt(widget.postId, deletedComment, originalIndex);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete comment'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -127,6 +157,8 @@ class _CommentItemState extends State<CommentItem> {
     );
 
     if (result['success'] && mounted) {
+      final commentsProvider = Provider.of<CommentsProvider>(context, listen: false);
+      commentsProvider.updateComment(widget.postId, result['comment']);
       widget.onEdited(result['comment']);
       setState(() {
         _isEditing = false;
@@ -136,42 +168,60 @@ class _CommentItemState extends State<CommentItem> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isDeleting) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Colors.grey.shade400,
-          ),
-        ),
-      );
-    }
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          UserAvatar(
-            user: widget.comment.user,
-            radius: 16,
-          ),
-          const SizedBox(width: 12),
+    return Consumer<CommentsProvider>(
+      builder: (context, commentsProvider, child) {
+        final comment = commentsProvider.getComment(widget.postId, widget.comment.id);
+
+        if (comment == null) {
+          return const SizedBox.shrink();
+        }
+
+        final isCurrentUser = authProvider.user?.id == comment.user.id;
+
+        final displayUser = isCurrentUser && authProvider.user != null
+            ? authProvider.user
+            : User(
+                id: comment.user.id,
+                username: comment.user.username ?? '',
+                role: comment.user.isOfficial ? 'official' : 'user',
+                isActive: true,
+                createdAt: DateTime.now(),
+                profilePhoto: comment.user.profilePhoto,
+                officialName: comment.user.officialName,
+                subscriptionStatus: comment.user.isVerified ? 'active' : null,
+              );
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              MemoryOptimizedAvatar(
+                imageUrl: displayUser?.profilePhoto,
+                fallbackText: displayUser?.displayName ?? comment.user.displayName,
+                size: 32,
+              ),
+              const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   children: [
                     Text(
-                      widget.comment.user.displayName,
+                      comment.user.displayName,
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
                     ),
-                    if (widget.comment.user.isOfficial) ...[
+                    if (comment.user.isVerified) ...[
                       const SizedBox(width: 4),
                       Icon(
                         Icons.verified,
@@ -181,14 +231,14 @@ class _CommentItemState extends State<CommentItem> {
                     ],
                     const SizedBox(width: 4),
                     Text(
-                      '· ${widget.comment.humanTime}',
+                      '· ${comment.whatsappTime}',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,
                       ),
                     ),
                     const Spacer(),
-                    if (widget.comment.isMine ?? false)
+                    if (comment.isMine == true)
                       GestureDetector(
                         onTap: _showOptions,
                         child: Icon(
@@ -232,19 +282,79 @@ class _CommentItemState extends State<CommentItem> {
                       ),
                     ],
                   ),
-                ] else
+                ] else ...[
                   Text(
-                    widget.comment.content,
+                    comment.content,
                     style: const TextStyle(
                       fontSize: 14,
-                      height: 1.3,
+                      height: 1.5,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          commentsProvider.toggleUpvote(widget.postId, comment.id);
+                        },
+                        icon: Icon(
+                          Icons.arrow_upward_rounded,
+                          size: 18,
+                          color: comment.userVote == 'upvote'
+                              ? Colors.green
+                              : Colors.grey.shade600,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${comment.score}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: comment.score > 0
+                              ? Colors.green
+                              : comment.score < 0
+                                  ? Colors.red
+                                  : Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: () {
+                          commentsProvider.toggleDownvote(widget.postId, comment.id);
+                        },
+                        icon: Icon(
+                          Icons.arrow_downward_rounded,
+                          size: 18,
+                          color: comment.userVote == 'downvote'
+                              ? Colors.red
+                              : Colors.grey.shade600,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
-          ),
+              ),
+            ),
         ],
       ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 1, bottom: 12),
+              child: Divider(height: 1, color: Colors.grey.shade200),
+            ),
+          ],
+        );
+      },
     );
   }
 

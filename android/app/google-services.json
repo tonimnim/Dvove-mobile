@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "811115689829",
+    "project_id": "dvove-a907b",
+    "storage_bucket": "dvove-a907b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:811115689829:android:32c076a72465d10b29138c",
+        "android_client_info": {
+          "package_name": "com.dvove.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQmvIKPusOJAVi-j_dH-6SCV453SWnEcg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:811115689829:android:6346387a351b49eb29138c",
+        "android_client_info": {
+          "package_name": "com.example.county_connect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQmvIKPusOJAVi-j_dH-6SCV453SWnEcg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -14,6 +14,7 @@ class OfficialPostsService {
   Future<Map<String, dynamic>> createPost({
     required String content,
     required String type,
+    String? scope,
     String? priority,
     DateTime? expiresAt,
     List<File>? images,
@@ -26,6 +27,7 @@ class OfficialPostsService {
         'content': content,
         'type': type,
         'comments_enabled': commentsEnabled ? 1 : 0,
+        if (scope != null) 'scope': scope,
         if (priority != null) 'priority': priority,
         if (expiresAt != null) 'expires_at': expiresAt.toIso8601String(),
       });
@@ -58,10 +60,6 @@ class OfficialPostsService {
       final response = await _apiClient.post(
         ApiEndpoints.createPost,
         data: formData,
-        options: Options(
-          sendTimeout: Duration(seconds: 60), // 60 seconds for upload
-          receiveTimeout: Duration(seconds: 60),
-        ),
         onSendProgress: onProgress != null ? (sent, total) {
           final progress = sent / total;
           onProgress(progress);

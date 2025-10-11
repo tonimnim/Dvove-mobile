@@ -1,32 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/providers/notification_provider.dart';
 import 'features/posts/providers/posts_provider.dart';
+import 'features/posts/providers/comments_provider.dart';
+import 'features/polls/providers/polls_provider.dart';
 import 'features/auth/screens/splash_screen.dart';
+import 'features/auth/screens/login_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
 import 'features/chat/screens/conversations_list_screen.dart';
-import 'core/services/intelligent_cache_service.dart';
-import 'core/services/fcm_service.dart';
+import 'features/constitution/screens/article_detail_screen.dart';
+import 'core/api/api_client.dart';
 
-void main() async {
+// Global navigator key for navigation from anywhere (e.g., API interceptors)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp();
-
-  // Initialize FCM
-  await FcmService.instance.initialize();
-
-  // Initialize memory-safe caching system
-  IntelligentCacheService.instance.initialize();
+  // Set up 401 unauthorized handler
+  ApiClient.onUnauthorized = () {
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  };
 
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Handle app lifecycle changes
+    // When app returns to foreground, websocket will auto-reconnect
+    // No action needed - Pusher handles reconnection automatically
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +62,12 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => PostsProvider()), // Single instance for entire app
+        ChangeNotifierProvider(create: (_) => PostsProvider()),
+        ChangeNotifierProvider(create: (_) => CommentsProvider()),
+        ChangeNotifierProvider(create: (_) => PollsProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'Dvove',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
@@ -111,6 +142,28 @@ class MyApp extends StatelessWidget {
         routes: {
           '/chat': (context) => const ChatScreen(),
           '/conversations': (context) => const ConversationsListScreen(),
+        },
+        onGenerateRoute: (settings) {
+          // Handle routes with arguments
+          if (settings.name == '/article-detail') {
+            final args = settings.arguments as Map<String, dynamic>?;
+            final articleId = args?['articleId'];
+            if (articleId != null) {
+              return MaterialPageRoute(
+                builder: (context) => ArticleDetailScreen(articleId: articleId),
+              );
+            }
+          } else if (settings.name == '/post-detail') {
+            final args = settings.arguments as Map<String, dynamic>?;
+            final postId = args?['postId'];
+            if (postId != null) {
+              // Note: You'll need to fetch the Post object or modify PostDetailScreen
+              // to accept postId and fetch the post inside the screen
+              // For now, returning null - you may need to adjust PostDetailScreen
+              return null;
+            }
+          }
+          return null;
         },
       ),
     );

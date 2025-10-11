@@ -12,36 +12,44 @@ class ImageCompression {
   /// Max dimension: 1920px, Quality: 85%
   /// Returns compressed File
   static Future<File> compressImage(File imageFile) async {
-    // Read image bytes
-    final Uint8List imageBytes = await imageFile.readAsBytes();
+    try {
+      // Read image bytes
+      final Uint8List imageBytes = await imageFile.readAsBytes();
 
-    // Decode image
-    img.Image? image = img.decodeImage(imageBytes);
-    if (image == null) {
-      // If decoding fails, return original
+      // Decode image
+      img.Image? image = img.decodeImage(imageBytes);
+      if (image == null) {
+        // If decoding fails, return original
+        return imageFile;
+      }
+
+      // Resize if too large (maintain aspect ratio)
+      const int maxDimension = 1920;
+      if (image.width > maxDimension || image.height > maxDimension) {
+        if (image.width > image.height) {
+          image = img.copyResize(image, width: maxDimension);
+        } else {
+          image = img.copyResize(image, height: maxDimension);
+        }
+      }
+
+      // Compress as JPEG with 85% quality
+      final List<int> compressedBytes = img.encodeJpg(image, quality: 85);
+
+      // Save to temporary file using async method (better for large files)
+      final String fileName = imageFile.path.split('/').last.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+      final Directory tempDir = await getTemporaryDirectory();
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final File compressedFile = File('${tempDir.path}/compressed_${timestamp}_$fileName');
+
+      // Write bytes and ensure file is properly closed
+      await compressedFile.writeAsBytes(compressedBytes, flush: true);
+
+      return compressedFile;
+    } catch (e) {
+      // On any error, return original file
       return imageFile;
     }
-
-    // Resize if too large (maintain aspect ratio)
-    const int maxDimension = 1920;
-    if (image.width > maxDimension || image.height > maxDimension) {
-      if (image.width > image.height) {
-        image = img.copyResize(image, width: maxDimension);
-      } else {
-        image = img.copyResize(image, height: maxDimension);
-      }
-    }
-
-    // Compress as JPEG with 85% quality
-    final List<int> compressedBytes = img.encodeJpg(image, quality: 85);
-
-    // Save to temporary file
-    final String fileName = imageFile.path.split('/').last;
-    final Directory tempDir = await getTemporaryDirectory();
-    final File compressedFile = File('${tempDir.path}/compressed_$fileName')
-      ..writeAsBytesSync(compressedBytes);
-
-    return compressedFile;
   }
 
   /// Compress multiple images in parallel

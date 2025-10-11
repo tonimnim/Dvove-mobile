@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
-import 'conversations_list_screen.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../../shared/widgets/user_avatar.dart';
+import '../../posts/widgets/memory_optimized_image.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? sessionId;
@@ -65,15 +64,14 @@ class _ChatScreenState extends State<ChatScreen> {
     await _loadMessages();
   }
 
-  Future<void> _loadMessages() async {
+  Future<void> _loadMessages({bool forceRefresh = false}) async {
     try {
-      final messages = await _chatService.getConversationMessages(_currentSessionId);
+      final messages = await _chatService.getConversationMessages(_currentSessionId, forceRefresh: forceRefresh);
       setState(() {
         _messages = messages;
       });
       _scrollToBottom();
     } catch (e) {
-      // If conversation doesn't exist yet, start with empty messages
       setState(() {
         _messages = [];
       });
@@ -285,9 +283,10 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 8),
             Consumer<AuthProvider>(
               builder: (context, authProvider, child) {
-                return UserAvatar(
-                  user: authProvider.user,
-                  radius: 14,
+                return MemoryOptimizedAvatar(
+                  imageUrl: authProvider.user?.profilePhoto,
+                  fallbackText: authProvider.user?.displayName ?? 'U',
+                  size: 28, // radius 14 * 2 = 28
                 );
               },
             ),

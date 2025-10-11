@@ -4,7 +4,6 @@ import '../models/post.dart';
 import '../../auth/models/user.dart';
 
 class FeaturedAdService {
-  static const String _featuredAdKey = 'featured_ad_cache';
   static const String _lastCheckKey = 'featured_ad_last_check';
 
   final ApiClient _apiClient;

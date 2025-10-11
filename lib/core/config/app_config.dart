@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class AppConfig {
   AppConfig._();
 
@@ -48,20 +46,18 @@ class AppConfig {
     return url;
   }
 
-  // WebSocket Configuration (for future real-time features)
-  static String get wsUrl => 'wss://dvove.com/ws';
+  // Pusher Configuration (for realtime features)
+  static const String pusherAppKey = 'bf17d63d36a366545d77';
+  static const String pusherCluster = 'us2';
+  static String get pusherAuthUrl => '$apiUrl/broadcasting/auth';
 
   // Feature Flags
   static const bool enableDebugLogging = isDevelopment;
   static const bool enableCrashReporting = isProduction;
 
-  // Timeouts - Production optimized
-  static const Duration connectionTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 30);
-
-  // Media Upload Timeouts (longer for file uploads)
-  static const Duration uploadConnectionTimeout = Duration(seconds: 60);
-  static const Duration uploadReceiveTimeout = Duration(seconds: 120);
+  // Timeouts - Single configuration for all requests
+  static const Duration connectionTimeout = Duration(seconds: 30);
+  static const Duration receiveTimeout = Duration(seconds: 120);
 
   // Cache Settings
   static const Duration cacheMaxAge = Duration(hours: 1);

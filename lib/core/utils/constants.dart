@@ -54,6 +54,12 @@ class ApiEndpoints {
   // Ad tracking endpoints
   static String adImpression(int adId) => '/ads/$adId/impression';
   static String adClick(int adId) => '/ads/$adId/click';
+
+  // Polls endpoints
+  static const String polls = '/polls';
+  static String pollDetails(int id) => '/polls/$id';
+  static String votePoll(int id) => '/polls/$id/vote';
+  static String pollResults(int id) => '/polls/$id/results';
 }
 
 class AppColors {

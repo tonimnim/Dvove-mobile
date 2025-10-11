@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
@@ -14,7 +13,6 @@ class MemoryManager {
   static const int _maxTotalMemory = 50 * 1024 * 1024; // 50MB total
   static const int _maxVideoThumbnails = 20; // Max 20 video thumbnails
   static const int _maxImageCache = 30; // Max 30 images in memory
-  static const int _thumbnailSize = 200 * 200 * 4; // 200x200 RGBA = ~160KB
 
   final Map<String, _CacheEntry> _cache = {};
   int _currentMemoryUsage = 0;
@@ -30,10 +28,13 @@ class MemoryManager {
     _cleanupTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _performCleanup();
     });
+  }
 
-    if (kDebugMode) {
-      developer.log('MemoryManager initialized with ${_maxTotalMemory ~/ (1024 * 1024)}MB limit');
-    }
+  /// Clear all cached data
+  void clearAll() {
+    _cache.clear();
+    _currentMemoryUsage = 0;
+    _broadcastStats();
   }
 
   void dispose() {
@@ -49,9 +50,6 @@ class MemoryManager {
 
     // Prevent storing if single item exceeds reasonable limits
     if (dataSize > _maxTotalMemory * 0.3) {
-      if (kDebugMode) {
-        developer.log('MemoryManager: Rejecting oversized item $key (${dataSize ~/ 1024}KB)');
-      }
       return false;
     }
 
@@ -70,10 +68,6 @@ class MemoryManager {
     _currentMemoryUsage += dataSize;
 
     _broadcastStats();
-
-    if (kDebugMode) {
-      developer.log('MemoryManager: Stored $key (${dataSize ~/ 1024}KB) - Total: ${_currentMemoryUsage ~/ 1024}KB');
-    }
 
     return true;
   }
@@ -192,10 +186,6 @@ class MemoryManager {
     }
 
     _broadcastStats();
-
-    if (kDebugMode && staleKeys.isNotEmpty) {
-      developer.log('MemoryManager: Cleaned up ${staleKeys.length} stale entries');
-    }
   }
 
   void _broadcastStats() {

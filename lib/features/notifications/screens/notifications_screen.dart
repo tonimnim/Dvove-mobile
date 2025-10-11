@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/notification.dart' as models;
-import '../services/notification_service.dart';
+import '../providers/notification_provider.dart';
 import '../widgets/notification_card.dart';
 import '../../constitution/screens/article_detail_screen.dart';
 
@@ -13,27 +14,18 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final NotificationService _notificationService = NotificationService();
   final ScrollController _scrollController = ScrollController();
-
-  List<models.Notification> _notifications = [];
-  models.NotificationMeta? _meta;
-  bool _isLoading = true;
-  bool _isLoadingMore = false;
-  String? _errorMessage;
-
-  // Simple filter state
-  bool _unreadOnly = false;
-  String? _typeFilter; // null = 'All', 'new_post' = 'Jobs'
-
-  int _currentPage = 1;
-  static const int _perPage = 20;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _loadNotifications();
+
+    // Initialize notifications if cache is empty
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<NotificationProvider>(context, listen: false);
+      provider.initializeNotifications();
+    });
   }
 
   @override
@@ -43,107 +35,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
-      _loadMoreNotifications();
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final provider = Provider.of<NotificationProvider>(context, listen: false);
+      if (!provider.isLoadingMore) {
+        provider.loadMoreNotifications();
+      }
     }
   }
 
-  Future<void> _loadNotifications({bool refresh = false}) async {
-    if (refresh) {
-      setState(() {
-        _currentPage = 1;
-        _notifications = [];
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    } else if (_isLoadingMore) {
-      return; // Prevent multiple simultaneous loads
-    }
-
-    setState(() {
-      if (!refresh) _isLoading = true;
-    });
-
-    try {
-      final response = await _notificationService.getNotifications(
-        unreadOnly: _unreadOnly,
-        type: _typeFilter,
-        perPage: _perPage,
-        page: _currentPage,
-      );
-
-      setState(() {
-        if (refresh) {
-          _notifications = response.notifications;
-        } else {
-          _notifications.addAll(response.notifications);
-        }
-        _meta = response.meta;
-        _isLoading = false;
-        _errorMessage = null;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _loadMoreNotifications() async {
-    if (_isLoadingMore || _meta == null || _currentPage >= _meta!.lastPage) {
-      return;
-    }
-
-    setState(() {
-      _isLoadingMore = true;
-      _currentPage++;
-    });
-
-    await _loadNotifications();
-
-    setState(() {
-      _isLoadingMore = false;
-    });
+  Future<void> _onRefresh() async {
+    final provider = Provider.of<NotificationProvider>(context, listen: false);
+    await provider.refreshNotifications();
   }
 
   Future<void> _markAllAsRead() async {
-    try {
-      await _notificationService.markAllAsRead();
+    final provider = Provider.of<NotificationProvider>(context, listen: false);
+    await provider.markAllAsRead();
 
-      // Update local state
-      setState(() {
-        _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
-        if (_meta != null) {
-          _meta = models.NotificationMeta(
-            currentPage: _meta!.currentPage,
-            from: _meta!.from,
-            lastPage: _meta!.lastPage,
-            perPage: _meta!.perPage,
-            to: _meta!.to,
-            total: _meta!.total,
-            unreadCount: 0,
-          );
-        }
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All notifications marked as read'),
-            backgroundColor: Color(0xFF01775A),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All notifications marked as read'),
+          backgroundColor: Color(0xFF01775A),
+        ),
+      );
     }
   }
 
@@ -151,49 +66,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     bool? unreadOnly,
     String? type,
   }) {
-    setState(() {
-      _unreadOnly = unreadOnly ?? false;
-      _typeFilter = type;
-    });
-    _loadNotifications(refresh: true);
+    final provider = Provider.of<NotificationProvider>(context, listen: false);
+
+    if (unreadOnly != null) {
+      provider.setUnreadFilter(unreadOnly);
+    }
+
+    if (type != null) {
+      provider.setTypeFilter(type.isEmpty ? null : type);
+    }
   }
 
   Future<void> _markNotificationAsRead(models.Notification notification) async {
+    final provider = Provider.of<NotificationProvider>(context, listen: false);
+
     // Mark as read if not already
     if (!notification.isRead) {
-      try {
-        await _notificationService.markAsRead(notification.id);
-
-        // Update local state
-        setState(() {
-          final index = _notifications.indexWhere((n) => n.id == notification.id);
-          if (index != -1) {
-            _notifications[index] = notification.copyWith(isRead: true);
-          }
-
-          // Update unread count
-          if (_meta != null) {
-            _meta = models.NotificationMeta(
-            currentPage: _meta!.currentPage,
-            from: _meta!.from,
-            lastPage: _meta!.lastPage,
-            perPage: _meta!.perPage,
-            to: _meta!.to,
-            total: _meta!.total,
-            unreadCount: _meta!.unreadCount - 1,
-          );
-        }
-      });
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error marking as read: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
+      await provider.markAsRead(notification.id);
     }
 
     // Navigate based on notification type
@@ -223,75 +112,77 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          // Unified Filter and Action Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-            ),
-            child: Column(
-              children: [
-                // Top row: Unread count + Mark All Read (if needed)
-                if (_meta != null && _meta!.unreadCount > 0) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${_meta!.unreadCount} unread',
-                          style: TextStyle(
-                            color: Colors.red.shade700,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _markAllAsRead,
-                        child: const Text(
-                          'Mark All Read',
-                          style: TextStyle(
-                            color: Color(0xFF01775A),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // Filter row: All/Jobs/Katiba + Unread toggle
-                Row(
+    return Consumer<NotificationProvider>(
+      builder: (context, provider, child) {
+        return Container(
+          color: Colors.white,
+          child: Column(
+            children: [
+              // Unified Filter and Action Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                ),
+                child: Column(
                   children: [
-                    _buildFilterChip(
-                      label: 'All',
-                      isSelected: _typeFilter == null,
-                      onTap: () => _onFiltersChanged(type: null),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      label: 'Jobs',
-                      isSelected: _typeFilter == 'new_post',
-                      onTap: () => _onFiltersChanged(type: 'new_post'),
-                      color: const Color(0xFF01775A),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      label: 'Katiba360°',
-                      isSelected: _typeFilter == 'constitution_daily',
-                      onTap: () => _onFiltersChanged(type: 'constitution_daily'),
-                      color: const Color(0xFF006600),
-                    ),
+                    // Top row: Unread count + Mark All Read (if needed)
+                    if (provider.meta != null && provider.meta!.unreadCount > 0) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${provider.meta!.unreadCount} unread',
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _markAllAsRead,
+                            child: const Text(
+                              'Mark All Read',
+                              style: TextStyle(
+                                color: Color(0xFF01775A),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Filter row: All/Jobs/Katiba + Unread toggle
+                    Row(
+                      children: [
+                        _buildFilterChip(
+                          label: 'All',
+                          isSelected: provider.typeFilter == null,
+                          onTap: () => _onFiltersChanged(type: ''),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          label: 'Jobs',
+                          isSelected: provider.typeFilter == 'new_post',
+                          onTap: () => _onFiltersChanged(type: 'new_post'),
+                          color: const Color(0xFF01775A),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          label: 'Katiba360°',
+                          isSelected: provider.typeFilter == 'constitution_daily',
+                          onTap: () => _onFiltersChanged(type: 'constitution_daily'),
+                          color: const Color(0xFF006600),
+                        ),
                     const Spacer(),
                     // Unread Only Toggle
                     Row(
@@ -299,7 +190,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Transform.scale(
                           scale: 0.8,
                           child: Switch(
-                            value: _unreadOnly,
+                            value: provider.unreadOnly,
                             onChanged: (value) {
                               _onFiltersChanged(unreadOnly: value);
                             },
@@ -326,10 +217,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           // Content
           Expanded(
-            child: _buildBody(),
+            child: _buildBody(provider),
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -367,8 +260,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading && _notifications.isEmpty) {
+  Widget _buildBody(NotificationProvider provider) {
+    if (provider.isLoading && provider.notifications.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
           color: Color(0xFF01775A),
@@ -376,7 +269,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
     }
 
-    if (_errorMessage != null) {
+    if (provider.errorMessage != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -397,7 +290,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _errorMessage!,
+              provider.errorMessage!,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade500,
@@ -406,7 +299,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _loadNotifications(refresh: true),
+              onPressed: _onRefresh,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF01775A),
               ),
@@ -417,7 +310,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
     }
 
-    if (_notifications.isEmpty) {
+    if (provider.notifications.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -450,14 +343,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadNotifications(refresh: true),
+      onRefresh: _onRefresh,
       color: const Color(0xFF01775A),
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
-        itemCount: _notifications.length + (_isLoadingMore ? 1 : 0),
+        itemCount: provider.notifications.length + (provider.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == _notifications.length) {
+          if (index == provider.notifications.length) {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(16),
@@ -468,7 +361,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             );
           }
 
-          final notification = _notifications[index];
+          final notification = provider.notifications[index];
           return NotificationCard(
             notification: notification,
             onTap: () => _markNotificationAsRead(notification),

@@ -5,10 +5,12 @@ import 'memory_optimized_image.dart';
 
 class PostMedia extends StatelessWidget {
   final List<String> mediaUrls;
+  final bool isAd;
 
   const PostMedia({
     super.key,
     required this.mediaUrls,
+    this.isAd = false,
   });
 
   @override
@@ -48,11 +50,19 @@ class PostMedia extends StatelessWidget {
       }
     }
 
+    // Ad-specific dimensions: smaller height, higher quality
+    final maxHeight = isAd
+        ? 250.0  // Fixed height for ads
+        : MediaQuery.of(context).size.height * 0.5;  // 50% screen height for posts
+
+    final maxWidth = isAd ? 1000 : 500;  // Match feed dimensions for instant cache hit
+    final maxImageHeight = isAd ? 800 : 400;  // Match feed dimensions for instant cache hit
+
     return GestureDetector(
       onTap: () => _openFullscreen(context, 0),
       child: Container(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.5,
+          maxHeight: maxHeight,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -80,8 +90,8 @@ class PostMedia extends StatelessWidget {
                 imageUrl: url,
                 fit: BoxFit.cover,
                 width: double.infinity,
-                maxWidth: 600, // Reduced from 800 for memory efficiency
-                maxHeight: 600,
+                maxWidth: maxWidth,
+                maxHeight: maxImageHeight,
                 placeholder: Container(
                   height: 200,
                   color: Colors.grey.shade200,

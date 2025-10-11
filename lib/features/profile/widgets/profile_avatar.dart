@@ -1,13 +1,15 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:crop_your_image/crop_your_image.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../posts/widgets/memory_optimized_image.dart';
 import '../services/profile_service.dart';
 import '../../auth/models/user.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../../core/config/app_config.dart';
+import '../../../core/services/intelligent_cache_service.dart';
 
 /// Avatar component with photo picker and upload functionality
 class ProfileAvatar extends StatefulWidget {
@@ -18,7 +20,7 @@ class ProfileAvatar extends StatefulWidget {
   const ProfileAvatar({
     super.key,
     required this.user,
-    this.radius = 50,
+    this.radius = 60,
     this.onUserUpdated,
   });
 
@@ -83,26 +85,16 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     try {
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 80,
+        imageQuality: 100,
       );
 
-      if (pickedFile != null) {
-        final File imageFile = File(pickedFile.path);
+      if (pickedFile == null) return;
 
-        // Compress image
-        final File? compressedFile = await _compressImage(imageFile);
+      final imageBytes = await pickedFile.readAsBytes();
 
-        if (compressedFile != null) {
-          setState(() {
-            _selectedImage = compressedFile;
-          });
+      if (!mounted) return;
 
-          // Auto-upload the photo
-          await _uploadProfilePhoto();
-        }
-      }
+      await _showCropperDialog(imageBytes);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -115,25 +107,130 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     }
   }
 
-  Future<File?> _compressImage(File file) async {
+  Future<void> _showCropperDialog(Uint8List imageBytes) async {
+    final cropController = CropController();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF01775A),
+          title: const Text('Adjust Photo', style: TextStyle(color: Colors.white)),
+          automaticallyImplyLeading: false,
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: Crop(
+                image: imageBytes,
+                controller: cropController,
+                onCropped: (result) {
+                  Navigator.pop(context);
+                  switch (result) {
+                    case CropSuccess(croppedImage: final croppedImage):
+                      _processCroppedImage(croppedImage);
+                    case CropFailure():
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to crop image'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                  }
+                },
+                aspectRatio: 1,
+                withCircleUi: true,
+                baseColor: Colors.black,
+                maskColor: Colors.black.withOpacity(0.8),
+                radius: 0,
+              ),
+            ),
+            Container(
+              color: Colors.grey.shade900,
+              padding: const EdgeInsets.all(16),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: Colors.white54, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => cropController.crop(),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: const Color(0xFF01775A),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Done',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _processCroppedImage(Uint8List croppedData) async {
     try {
-      final bytes = await file.readAsBytes();
-      final image = img.decodeImage(bytes);
+      final image = img.decodeImage(croppedData);
+      if (image == null) return;
 
-      if (image == null) return null;
-
-      // Resize image to max 300x300 while maintaining aspect ratio
-      final resized = img.copyResize(image, width: 300, height: 300);
-
-      // Compress and save
+      final resized = img.copyResize(image, width: 400, height: 400);
       final compressedBytes = img.encodeJpg(resized, quality: 85);
 
-      final compressedFile = File('${file.path}_compressed.jpg');
-      await compressedFile.writeAsBytes(compressedBytes);
+      final tempDir = Directory.systemTemp;
+      final tempFile = File('${tempDir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await tempFile.writeAsBytes(compressedBytes);
 
-      return compressedFile;
+      setState(() {
+        _selectedImage = tempFile;
+      });
+
+      await _uploadProfilePhoto();
     } catch (e) {
-      return file; // Return original if compression fails
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to process image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -148,9 +245,12 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       // Upload profile photo using ProfileService
       final updatedUser = await _profileService.uploadProfilePhoto(_selectedImage!.path);
 
+      // Clear cache to show new photo
+      IntelligentCacheService.instance.clearCache();
+
       setState(() {
         _isUploadingPhoto = false;
-        _selectedImage = null; // Clear selected image after successful upload
+        _selectedImage = null;
       });
 
       // Notify parent about user update
@@ -171,7 +271,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     } catch (e) {
       setState(() {
         _isUploadingPhoto = false;
-        _selectedImage = null; // Reset on error
+        _selectedImage = null;
       });
 
       if (mounted) {
@@ -188,63 +288,21 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
   Widget _buildAvatarContent() {
     // Show selected image if available
     if (_selectedImage != null) {
-      return CircleAvatar(
-        radius: widget.radius,
-        backgroundImage: FileImage(_selectedImage!),
-      );
-    }
-
-    // Show profile photo if available
-    if (widget.user.profilePhoto != null && widget.user.profilePhoto!.isNotEmpty) {
       return ClipOval(
-        child: Container(
+        child: Image.file(
+          _selectedImage!,
           width: widget.radius * 2,
           height: widget.radius * 2,
-          color: Colors.grey.shade300,
-          child: CachedNetworkImage(
-            imageUrl: AppConfig.fixMediaUrl(widget.user.profilePhoto!),
-            width: widget.radius * 2,
-            height: widget.radius * 2,
-            memCacheWidth: (widget.radius * 2 * 3.5).round(),
-            memCacheHeight: (widget.radius * 2 * 3.5).round(),
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Center(
-              child: Text(
-                widget.user.displayName.substring(0, 1).toUpperCase(),
-                style: TextStyle(
-                  fontSize: widget.radius * 0.6,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => Center(
-              child: Text(
-                widget.user.displayName.substring(0, 1).toUpperCase(),
-                style: TextStyle(
-                  fontSize: widget.radius * 0.6,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
+          fit: BoxFit.cover,
         ),
       );
     }
 
-    // Fallback to initials
-    return CircleAvatar(
-      radius: widget.radius,
-      backgroundColor: Colors.grey.shade300,
-      child: Text(
-        widget.user.displayName.substring(0, 1).toUpperCase(),
-        style: TextStyle(
-          fontSize: widget.radius * 0.6,
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+    // Use MemoryOptimizedAvatar for display
+    return MemoryOptimizedAvatar(
+      imageUrl: widget.user.profilePhoto,
+      fallbackText: widget.user.displayName,
+      size: widget.radius * 2,
     );
   }
 

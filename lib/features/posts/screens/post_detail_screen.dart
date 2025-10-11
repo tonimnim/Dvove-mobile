@@ -6,8 +6,9 @@ import '../widgets/post_header.dart';
 import '../widgets/post_media.dart';
 import '../widgets/post_actions.dart';
 import '../widgets/formatted_text.dart';
-import '../services/posts_service.dart';
-import '../../../shared/widgets/user_avatar.dart';
+import '../widgets/comment_item.dart';
+import '../providers/posts_provider.dart';
+import '../providers/comments_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -24,46 +25,25 @@ class PostDetailScreen extends StatefulWidget {
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
-  final PostsService _postsService = PostsService();
-  List<Comment> _comments = [];
-  bool _isLoadingComments = true;
   bool _isPostingComment = false;
-
-  // Local state for like
-  late bool _isLiked;
-  late int _likesCount;
 
   @override
   void initState() {
     super.initState();
-    _isLiked = widget.post.isLiked ?? false;
-    _likesCount = widget.post.likesCount;
-    _loadComments();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final commentsProvider = Provider.of<CommentsProvider>(context, listen: false);
+      commentsProvider.loadComments(widget.post.id);
+    });
   }
 
   @override
   void didUpdateWidget(PostDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.post.id != widget.post.id) {
-      _isLiked = widget.post.isLiked ?? false;
-      _likesCount = widget.post.likesCount;
-      _loadComments();
+      final commentsProvider = Provider.of<CommentsProvider>(context, listen: false);
+      commentsProvider.loadComments(widget.post.id);
     }
-  }
-
-  Future<void> _loadComments() async {
-    setState(() {
-      _isLoadingComments = true;
-    });
-
-    final result = await _postsService.getComments(widget.post.id);
-
-    setState(() {
-      if (result['success']) {
-        _comments = result['comments'] ?? [];
-      }
-      _isLoadingComments = false;
-    });
   }
 
   Future<void> _postComment() async {
@@ -71,8 +51,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     final content = _commentController.text.trim();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final commentsProvider = Provider.of<CommentsProvider>(context, listen: false);
 
-    // Create optimistic comment
     final tempId = DateTime.now().millisecondsSinceEpoch;
     final optimisticComment = Comment(
       id: tempId,
@@ -82,40 +62,30 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         username: authProvider.user!.username,
         profilePhoto: authProvider.user!.profilePhoto,
         isOfficial: authProvider.user!.isOfficial,
+        isVerified: authProvider.user!.hasActiveSubscription,
         officialName: authProvider.user!.officialName,
       ),
       createdAt: DateTime.now(),
-      humanTime: 'Just now', // Still needed for backend compatibility
+      humanTime: 'Just now',
       isMine: true,
     );
 
-    // Add optimistic comment to UI immediately
+    commentsProvider.addComment(widget.post.id, optimisticComment);
     setState(() {
-      _comments.insert(0, optimisticComment);
       _isPostingComment = true;
     });
 
-    // Clear input immediately
     _commentController.clear();
 
-    // Send to server in background
-    final result = await _postsService.addComment(widget.post.id, content);
+    final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+    final result = await postsProvider.addComment(widget.post.id, content);
 
     if (mounted) {
-      if (result['success'] && result['comment'] != null) {
-        // Replace optimistic comment with real server data
+      if (result != null && result['success'] && result['comment'] != null) {
         final realComment = result['comment'] as Comment;
-        setState(() {
-          final index = _comments.indexWhere((c) => c.id == tempId);
-          if (index != -1) {
-            _comments[index] = realComment;
-          }
-        });
+        commentsProvider.replaceOptimisticComment(widget.post.id, tempId, realComment);
       } else {
-        // Remove optimistic comment if failed
-        setState(() {
-          _comments.removeWhere((c) => c.id == tempId);
-        });
+        commentsProvider.deleteComment(widget.post.id, tempId);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -132,41 +102,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  Future<void> _toggleLike() async {
-    final wasLiked = _isLiked;
-    final currentLikes = _likesCount;
-
-    // Optimistic update
-    setState(() {
-      _isLiked = !wasLiked;
-      _likesCount = wasLiked ? currentLikes - 1 : currentLikes + 1;
-    });
-
-    try {
-      final result = wasLiked
-        ? await _postsService.unlikePost(widget.post.id)
-        : await _postsService.likePost(widget.post.id);
-
-      if (result['success']) {
-        // Update with server response
-        setState(() {
-          _isLiked = result['is_liked'];
-          _likesCount = result['likes_count'];
-        });
-      } else {
-        // Revert on failure
-        setState(() {
-          _isLiked = wasLiked;
-          _likesCount = currentLikes;
-        });
-      }
-    } catch (e) {
-      // Revert on error
-      setState(() {
-        _isLiked = wasLiked;
-        _likesCount = currentLikes;
-      });
-    }
+  void _toggleLike() {
+    final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+    postsProvider.toggleLike(widget.post.id);
   }
 
   @override
@@ -203,7 +141,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Post content
                   Container(
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -219,113 +156,108 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           isLocalPost: widget.post.isLocal,
                         ),
                         const SizedBox(height: 12),
-                        // Full content with hashtags, mentions, and URLs highlighted
                         if (widget.post.content != null)
                           FormattedText(
                             text: widget.post.content!,
-                            showFullContent: true, // Show full content without truncation
+                            showFullContent: true,
                           ),
                         if (widget.post.hasMedia) ...[
                           const SizedBox(height: 12),
                           PostMedia(mediaUrls: widget.post.mediaUrls),
                         ],
                         const SizedBox(height: 12),
-                        PostActions(
-                          likesCount: _likesCount,
-                          commentsCount: _comments.length,
-                          isLiked: _isLiked,
-                          onLike: _toggleLike,
-                          onComment: () {
-                            // Focus on comment input
-                            FocusScope.of(context).requestFocus(FocusNode());
-                          },
-                          onShare: () {
-                            // Share functionality
+                        Consumer2<PostsProvider, CommentsProvider>(
+                          builder: (context, postsProvider, commentsProvider, child) {
+                            // Search for the post in all feeds
+                            Post updatedPost = widget.post;
+
+                            // Check home feed
+                            final homePosts = postsProvider.getPostsForFeed(null);
+                            try {
+                              updatedPost = homePosts.firstWhere(
+                                (p) => p.id == widget.post.id,
+                              );
+                            } catch (e) {
+                              // Not found in home feed, check jobs feed
+                              final jobPosts = postsProvider.getPostsForFeed('job');
+                              try {
+                                updatedPost = jobPosts.firstWhere(
+                                  (p) => p.id == widget.post.id,
+                                );
+                              } catch (e) {
+                                // Not found in any feed, use original post
+                                updatedPost = widget.post;
+                              }
+                            }
+
+                            final commentsCount = commentsProvider.getComments(widget.post.id).length;
+                            return PostActions(
+                              likesCount: updatedPost.likesCount,
+                              commentsCount: commentsCount,
+                              isLiked: updatedPost.isLiked ?? false,
+                              onLike: _toggleLike,
+                              onComment: () {
+                                FocusScope.of(context).requestFocus(FocusNode());
+                              },
+                            );
                           },
                         ),
                       ],
                     ),
                   ),
                   const Divider(height: 1),
-                  // Comments section
-                  if (_isLoadingComments)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else if (_comments.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text(
-                        'No comments yet. Be the first to comment!',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _comments.length,
-                      itemBuilder: (context, index) {
-                        final comment = _comments[index];
-                        return Column(
-                          children: [
-                            ListTile(
-                              leading: UserAvatar(
-                                user: comment.user,
-                                radius: 16,
-                              ),
-                              title: Row(
-                                children: [
-                                  Text(
-                                    comment.user.displayName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '• ${comment.whatsappTime}',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.normal,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Text(
-                                comment.content,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                            if (index < _comments.length - 1)
-                              Divider(
-                                height: 1,
-                                thickness: 0.5,
-                                color: Colors.grey.shade300,
-                                indent: 60,
-                              ),
-                          ],
+                  Consumer<CommentsProvider>(
+                    builder: (context, commentsProvider, child) {
+                      final comments = commentsProvider.getComments(widget.post.id);
+
+                      if (comments.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text(
+                            'No comments yet. Be the first to comment!',
+                            style: TextStyle(color: Colors.grey),
+                          ),
                         );
-                      },
-                    ),
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: comments.length,
+                          itemBuilder: (context, index) {
+                            final comment = comments[index];
+                            return CommentItem(
+                              postId: widget.post.id,
+                              comment: comment,
+                              onDeleted: () {
+                                commentsProvider.deleteComment(widget.post.id, comment.id);
+                              },
+                              onEdited: (editedComment) {
+                                commentsProvider.updateComment(widget.post.id, editedComment);
+                              },
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
           ),
-          // Comment input
           if (widget.post.commentsEnabled)
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade300),
+            SafeArea(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade300),
+                  ),
                 ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
                 children: [
                   Expanded(
                     child: TextField(
@@ -363,6 +295,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 ],
               ),
             ),
+          ),
         ],
       ),
     );

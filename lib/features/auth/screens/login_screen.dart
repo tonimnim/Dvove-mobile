@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../../posts/screens/home_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 import '../../../core/services/fcm_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -57,8 +58,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -123,12 +122,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: authProvider.isLoading ? null : _handleLogin,
-                  child: authProvider.isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Login'),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, child) {
+                    return ElevatedButton(
+                      onPressed: authProvider.isLoading ? null : _handleLogin,
+                      child: authProvider.isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Login'),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextButton(
