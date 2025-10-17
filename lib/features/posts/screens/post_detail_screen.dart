@@ -26,6 +26,8 @@ class PostDetailScreen extends StatefulWidget {
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _isPostingComment = false;
+  bool _postDeleted = false;
+  PostsProvider? _postsProvider;
 
   @override
   void initState() {
@@ -34,7 +36,38 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final commentsProvider = Provider.of<CommentsProvider>(context, listen: false);
       commentsProvider.loadComments(widget.post.id);
+
+      // Listen for post deletions
+      _postsProvider = Provider.of<PostsProvider>(context, listen: false);
+      _postsProvider?.addListener(_checkIfPostDeleted);
     });
+  }
+
+  void _checkIfPostDeleted() {
+    if (_postDeleted || !mounted || _postsProvider == null) return;
+
+    // Check if post exists in any feed
+    final homePosts = _postsProvider!.getPostsForFeed(null);
+    final jobPosts = _postsProvider!.getPostsForFeed('job');
+
+    final existsInHome = homePosts.any((p) => p.id == widget.post.id);
+    final existsInJobs = jobPosts.any((p) => p.id == widget.post.id);
+
+    if (!existsInHome && !existsInJobs) {
+      _postDeleted = true;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This post was deleted'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        Navigator.pop(context);
+      }
+    }
   }
 
   @override
@@ -71,6 +104,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
 
     commentsProvider.addComment(widget.post.id, optimisticComment);
+
+    if (!mounted) return;
+
     setState(() {
       _isPostingComment = true;
     });
@@ -303,6 +339,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   @override
   void dispose() {
+    _postsProvider?.removeListener(_checkIfPostDeleted);
     _commentController.dispose();
     super.dispose();
   }

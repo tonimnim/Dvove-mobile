@@ -10,6 +10,7 @@ import '../services/featured_ad_service.dart';
 import '../database/posts_database.dart';
 import '../../auth/services/auth_service.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/services/echo_service.dart';
 
 class PostsProvider extends ChangeNotifier {
   final PostsService _postsService;
@@ -39,6 +40,10 @@ class PostsProvider extends ChangeNotifier {
   final Map<int, double> _uploadProgress = {};
   bool _isProcessingPost = false;
   Function(bool success, String message)? onSyncComplete;
+
+  final Set<String> _subscribedChannels = {};
+  int? _currentCountyId;
+  String? _currentScope;
   List<Post> get posts => _getPostsForType(_currentType);
   List<Post> get postsWithFeaturedAd {
     final featuredAd = _featuredAdService.featuredAd;
@@ -115,6 +120,79 @@ class PostsProvider extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  Future<void> subscribeToPostDeletions({int? countyId, String? scope}) async {
+    // Unsubscribe from previous channels if county/scope changed
+    if (countyId != _currentCountyId || scope != _currentScope) {
+      await _unsubscribeFromAllChannels();
+    }
+
+    _currentCountyId = countyId;
+    _currentScope = scope;
+
+    await EchoService.connect();
+
+    // Subscribe to appropriate channel based on scope
+    String channelName;
+    if (scope == 'county' && countyId != null) {
+      channelName = 'county.$countyId.posts';
+    } else {
+      channelName = 'national.posts';
+    }
+
+    if (_subscribedChannels.contains(channelName)) {
+      return;
+    }
+
+    await EchoService.subscribe(channelName);
+    _subscribedChannels.add(channelName);
+
+    EchoService.listen(channelName, 'post.deleted', (data) {
+      try {
+        final Map<String, dynamic> eventData = data is String ? jsonDecode(data) : data;
+        final postId = eventData['post_id'];
+
+        if (postId != null) {
+          removePostById(postId.toString());
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error parsing post.deleted event: $e');
+        }
+      }
+    });
+  }
+
+  Future<void> _unsubscribeFromAllChannels() async {
+    for (String channelName in _subscribedChannels) {
+      EchoService.stopListening(channelName, 'post.deleted');
+      await EchoService.unsubscribe(channelName);
+    }
+    _subscribedChannels.clear();
+  }
+
+  void removePostById(String postId) {
+    bool postRemoved = false;
+
+    for (var key in _postsByType.keys) {
+      final posts = _postsByType[key]!;
+      final initialLength = posts.length;
+
+      _postsByType[key] = posts.where((post) =>
+        post.id != postId && post.serverId.toString() != postId
+      ).toList();
+
+      if (_postsByType[key]!.length < initialLength) {
+        postRemoved = true;
+      }
+    }
+
+    if (postRemoved) {
+      // Also remove from database
+      _database.deletePostByServerId(int.tryParse(postId) ?? 0);
+      notifyListeners();
+    }
   }
 
   Future<void> initializeFeed({int? countyId, String? type, String? excludeType}) async {
@@ -628,6 +706,7 @@ class PostsProvider extends ChangeNotifier {
   @override
   void dispose() {
     _syncTimer?.cancel();
+    _unsubscribeFromAllChannels();
     super.dispose();
   }
 }

@@ -165,6 +165,8 @@ class CommentsService {
       return {
         'success': true,
         'score': response.data['data']['score'],
+        'upvotes_count': response.data['data']['upvotes_count'],
+        'downvotes_count': response.data['data']['downvotes_count'],
         'action': response.data['data']['action'],
       };
     } catch (e) {
@@ -182,6 +184,8 @@ class CommentsService {
       return {
         'success': true,
         'score': response.data['data']['score'],
+        'upvotes_count': response.data['data']['upvotes_count'],
+        'downvotes_count': response.data['data']['downvotes_count'],
         'action': response.data['data']['action'],
       };
     } catch (e) {

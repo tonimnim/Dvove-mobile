@@ -309,20 +309,18 @@ class _CommentItemState extends State<CommentItem> {
                         constraints: const BoxConstraints(),
                         visualDensity: VisualDensity.compact,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 2),
                       Text(
-                        '${comment.score}',
+                        '${comment.upvotesCount ?? 0}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: comment.score > 0
+                          color: comment.userVote == 'upvote'
                               ? Colors.green
-                              : comment.score < 0
-                                  ? Colors.red
-                                  : Colors.grey.shade600,
+                              : Colors.grey.shade600,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 12),
                       IconButton(
                         onPressed: () {
                           commentsProvider.toggleDownvote(widget.postId, comment.id);
@@ -337,6 +335,17 @@ class _CommentItemState extends State<CommentItem> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${comment.downvotesCount ?? 0}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: comment.userVote == 'downvote'
+                              ? Colors.red
+                              : Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),

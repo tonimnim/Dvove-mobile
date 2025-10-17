@@ -9,6 +9,8 @@ class Comment {
 
   // Voting fields
   final int score; // Net votes (can be positive, zero, or negative)
+  final int? upvotesCount; // Number of upvotes
+  final int? downvotesCount; // Number of downvotes
   final String? userVote; // Current user's vote: 'upvote', 'downvote', or null
 
   // Ad-specific fields
@@ -26,6 +28,8 @@ class Comment {
     this.isMine,
     this.mediaUrls = const [],
     this.score = 0,
+    this.upvotesCount,
+    this.downvotesCount,
     this.userVote,
     this.itemType,
     this.adType,
@@ -49,6 +53,8 @@ class Comment {
       isMine: json['is_mine'],
       mediaUrls: mediaUrls,
       score: json['score'] ?? 0,
+      upvotesCount: json['upvotes_count'] ?? 0,
+      downvotesCount: json['downvotes_count'] ?? 0,
       userVote: json['user_vote'],
     );
   }
@@ -63,6 +69,8 @@ class Comment {
       'is_mine': isMine,
       'media_urls': mediaUrls,
       'score': score,
+      'upvotes_count': upvotesCount,
+      'downvotes_count': downvotesCount,
       'user_vote': userVote,
       'item_type': itemType,
       'ad_type': adType,
@@ -80,6 +88,8 @@ class Comment {
     bool? isMine,
     List<String>? mediaUrls,
     int? score,
+    int? upvotesCount,
+    int? downvotesCount,
     String? userVote,
     String? itemType,
     String? adType,
@@ -95,6 +105,8 @@ class Comment {
       isMine: isMine ?? this.isMine,
       mediaUrls: mediaUrls ?? this.mediaUrls,
       score: score ?? this.score,
+      upvotesCount: upvotesCount ?? this.upvotesCount,
+      downvotesCount: downvotesCount ?? this.downvotesCount,
       userVote: userVote ?? this.userVote,
       itemType: itemType ?? this.itemType,
       adType: adType ?? this.adType,

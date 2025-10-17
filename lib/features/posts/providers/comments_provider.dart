@@ -146,6 +146,8 @@ class CommentsProvider extends ChangeNotifier {
         final Map<String, dynamic> eventData = data is String ? jsonDecode(data) : data;
         final commentId = eventData['comment_id'];
         final score = eventData['score'];
+        final upvotesCount = eventData['upvotes_count'];
+        final downvotesCount = eventData['downvotes_count'];
 
         if (commentId == null || score == null) {
           return;
@@ -162,7 +164,11 @@ class CommentsProvider extends ChangeNotifier {
 
         final index = comments.indexWhere((c) => c.id == commentId);
         if (index != -1) {
-          _commentsByPostId[postId]![index] = comments[index].copyWith(score: score);
+          _commentsByPostId[postId]![index] = comments[index].copyWith(
+            score: score,
+            upvotesCount: upvotesCount,
+            downvotesCount: downvotesCount,
+          );
           notifyListeners();
         }
       } catch (e) {
@@ -202,24 +208,36 @@ class CommentsProvider extends ChangeNotifier {
 
     final comment = comments[index];
     final currentScore = comment.score;
+    final currentUpvotesCount = comment.upvotesCount ?? 0;
+    final currentDownvotesCount = comment.downvotesCount ?? 0;
     final currentUserVote = comment.userVote;
 
     int newScore;
+    int newUpvotesCount;
+    int newDownvotesCount;
     String? newUserVote;
 
     if (currentUserVote == null) {
       newScore = currentScore + 1;
+      newUpvotesCount = currentUpvotesCount + 1;
+      newDownvotesCount = currentDownvotesCount;
       newUserVote = 'upvote';
     } else if (currentUserVote == 'upvote') {
       newScore = currentScore - 1;
+      newUpvotesCount = currentUpvotesCount - 1;
+      newDownvotesCount = currentDownvotesCount;
       newUserVote = null;
     } else {
       newScore = currentScore + 2;
+      newUpvotesCount = currentUpvotesCount + 1;
+      newDownvotesCount = currentDownvotesCount - 1;
       newUserVote = 'upvote';
     }
 
     _commentsByPostId[postId]![index] = comment.copyWith(
       score: newScore,
+      upvotesCount: newUpvotesCount,
+      downvotesCount: newDownvotesCount,
       userVote: newUserVote,
     );
     notifyListeners();
@@ -230,6 +248,8 @@ class CommentsProvider extends ChangeNotifier {
       if (result['success']) {
         final action = result['action'];
         final serverScore = result['score'];
+        final serverUpvotesCount = result['upvotes_count'];
+        final serverDownvotesCount = result['downvotes_count'];
         String? serverUserVote;
         if (action == 'upvoted') {
           serverUserVote = 'upvote';
@@ -239,6 +259,8 @@ class CommentsProvider extends ChangeNotifier {
 
         _commentsByPostId[postId]![index] = comment.copyWith(
           score: serverScore,
+          upvotesCount: serverUpvotesCount,
+          downvotesCount: serverDownvotesCount,
           userVote: serverUserVote,
         );
         notifyListeners();
@@ -273,24 +295,36 @@ class CommentsProvider extends ChangeNotifier {
 
     final comment = comments[index];
     final currentScore = comment.score;
+    final currentUpvotesCount = comment.upvotesCount ?? 0;
+    final currentDownvotesCount = comment.downvotesCount ?? 0;
     final currentUserVote = comment.userVote;
 
     int newScore;
+    int newUpvotesCount;
+    int newDownvotesCount;
     String? newUserVote;
 
     if (currentUserVote == null) {
       newScore = currentScore - 1;
+      newUpvotesCount = currentUpvotesCount;
+      newDownvotesCount = currentDownvotesCount + 1;
       newUserVote = 'downvote';
     } else if (currentUserVote == 'downvote') {
       newScore = currentScore + 1;
+      newUpvotesCount = currentUpvotesCount;
+      newDownvotesCount = currentDownvotesCount - 1;
       newUserVote = null;
     } else {
       newScore = currentScore - 2;
+      newUpvotesCount = currentUpvotesCount - 1;
+      newDownvotesCount = currentDownvotesCount + 1;
       newUserVote = 'downvote';
     }
 
     _commentsByPostId[postId]![index] = comment.copyWith(
       score: newScore,
+      upvotesCount: newUpvotesCount,
+      downvotesCount: newDownvotesCount,
       userVote: newUserVote,
     );
     notifyListeners();
@@ -301,6 +335,8 @@ class CommentsProvider extends ChangeNotifier {
       if (result['success']) {
         final action = result['action'];
         final serverScore = result['score'];
+        final serverUpvotesCount = result['upvotes_count'];
+        final serverDownvotesCount = result['downvotes_count'];
         String? serverUserVote;
         if (action == 'downvoted') {
           serverUserVote = 'downvote';
@@ -310,6 +346,8 @@ class CommentsProvider extends ChangeNotifier {
 
         _commentsByPostId[postId]![index] = comment.copyWith(
           score: serverScore,
+          upvotesCount: serverUpvotesCount,
+          downvotesCount: serverDownvotesCount,
           userVote: serverUserVote,
         );
         notifyListeners();

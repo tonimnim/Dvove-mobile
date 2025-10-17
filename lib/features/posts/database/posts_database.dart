@@ -135,6 +135,15 @@ class PostsDatabase {
     );
   }
 
+  Future<int> deletePostByServerId(int serverId) async {
+    final db = await database;
+    return await db.delete(
+      'posts',
+      where: 'server_id = ?',
+      whereArgs: [serverId],
+    );
+  }
+
   Future<void> deleteOldPosts(int keepCount) async {
     final db = await database;
     await db.rawDelete('''
