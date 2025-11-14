@@ -33,20 +33,30 @@ class FcmService {
     _firebaseMessaging = FirebaseMessaging.instance;
     _isInitialized = true;
 
-    await _requestPermissions();
-    await _initializeLocalNotifications();
-
+    // Setup listeners first (non-blocking)
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-    final initialMessage = await _firebaseMessaging?.getInitialMessage();
-    if (initialMessage != null) {
-      _handleNotificationTap(initialMessage);
-    }
+    // Check for initial message (quick, non-blocking)
+    _firebaseMessaging?.getInitialMessage().then((initialMessage) {
+      if (initialMessage != null) {
+        _handleNotificationTap(initialMessage);
+      }
+    });
+
+    // Initialize notifications in background (don't await)
+    _initializeInBackground();
 
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
     });
+  }
+
+  Future<void> _initializeInBackground() async {
+    // Initialize local notifications first (usually fast)
+    await _initializeLocalNotifications();
+    // Request permissions later (may require user interaction)
+    await _requestPermissions();
   }
 
   Future<void> _initializeLocalNotifications() async {
@@ -100,9 +110,17 @@ class FcmService {
   }
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    // Handle subscription refresh action
-    if (message.data['action'] == 'refresh_subscription') {
+    final messageType = message.data['type'];
+    final action = message.data['action'];
+
+    // Handle subscription-related notifications
+    if (action == 'refresh_subscription' || messageType == 'payment_success') {
       await _refreshSubscriptionStatus();
+
+      // If payment success, show success feedback
+      if (messageType == 'payment_success') {
+        _showPaymentSuccessNotification();
+      }
     }
 
     // Show local notification for foreground messages
@@ -170,6 +188,52 @@ class FcmService {
       _navigatorKey!.currentState!.pushNamed(
         '/post-detail',
         arguments: {'postId': postId},
+      );
+    } else if (type == 'payment_success') {
+      // Refresh subscription status and show success feedback
+      _refreshSubscriptionStatus();
+      _showPaymentSuccessNotification();
+    }
+  }
+
+  void _showPaymentSuccessNotification() {
+    // Show success snackbar to user
+    if (_navigatorKey?.currentContext != null) {
+      final context = _navigatorKey!.currentContext!;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+
+      messenger?.showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Payment Successful!',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Your subscription has been renewed',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF01775A),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       );
     }
   }

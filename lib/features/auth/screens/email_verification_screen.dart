@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../../posts/screens/home_screen.dart';
+import '../../posts/providers/posts_provider.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -35,6 +36,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       );
 
       if (success && mounted) {
+        // Prefetch posts before navigation for better UX
+        // Don't await - let it load in background
+        final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+        postsProvider.initializeFeed(
+          countyId: authProvider.user?.countyId,
+          type: null, // Home feed (all posts except jobs)
+        );
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),

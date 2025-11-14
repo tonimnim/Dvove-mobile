@@ -43,4 +43,32 @@ class SubscriptionService {
       throw Exception('Failed to initiate payment: $e');
     }
   }
+
+  /// Check payment status
+  /// Calls GET /api/v1/payment/{paymentId}/status
+  /// Returns payment status: 'pending', 'completed', 'failed'
+  Future<Map<String, dynamic>> checkPaymentStatus(int paymentId) async {
+    try {
+      final response = await _apiClient.get('/payment/$paymentId/status');
+
+      return {
+        'success': true,
+        'status': response.data['data']['status'],
+        'payment_id': response.data['data']['payment_id'],
+      };
+    } on DioException catch (e) {
+      // If payment not found or API error, return as failed
+      return {
+        'success': false,
+        'status': 'unknown',
+        'message': e.response?.data?['message'] ?? 'Could not check payment status',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'status': 'unknown',
+        'message': 'Error checking payment status',
+      };
+    }
+  }
 }

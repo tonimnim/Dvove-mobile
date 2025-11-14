@@ -23,18 +23,19 @@ class AuthProvider extends ChangeNotifier {
   bool get canCreatePosts => _user?.canCreatePosts ?? false;
   String get displayName => _user?.displayName ?? '';
 
-  Future<void> initializeAuth() async {
+  /// Load user data when needed (not during splash!)
+  Future<void> loadUser() async {
+    if (_user != null) return; // Already loaded
+
     _isLoading = true;
     notifyListeners();
 
     try {
-      final isLoggedIn = await _authService.isLoggedIn();
-      if (isLoggedIn) {
-        _user = await _authService.getCurrentUser(forceRefresh: false);
-        _isAuthenticated = _user != null;
-      }
+      // Try to get user from storage first, then API if needed
+      _user = await _authService.getCurrentUser(forceRefresh: false);
+      _isAuthenticated = _user != null;
     } catch (e) {
-      _errorMessage = 'Failed to initialize auth';
+      _isAuthenticated = false;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -81,6 +82,7 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _errorMessage = null;
+    notifyListeners(); // Notify immediately to disable UI
 
     try {
       final result = await _authService.register(
@@ -130,6 +132,7 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _errorMessage = null;
+    notifyListeners(); // Notify immediately to disable UI
 
     try {
       final result = await _authService.verifyEmailCode(
@@ -191,6 +194,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> deleteAccount() async {
     _isLoading = true;
     _errorMessage = null;
+    notifyListeners(); // Notify immediately to disable UI
 
     try {
       final result = await _authService.deleteAccount();

@@ -172,6 +172,7 @@ class AuthService {
     }
   }
 
+
   Future<Map<String, dynamic>> verifyEmailCode({
     required String email,
     required String code,

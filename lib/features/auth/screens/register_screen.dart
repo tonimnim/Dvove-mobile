@@ -23,6 +23,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   County? _selectedCounty;
   List<County> _counties = [];
   bool _isLoadingCounties = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   final CountiesService _countiesService = CountiesService();
 
 
@@ -241,11 +243,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Password
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
                     labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock, color: Colors.black54),
+                    prefixIcon: const Icon(Icons.lock, color: Colors.black54),
                     helperText: 'Minimum 8 characters',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.black54,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -262,10 +275,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Confirm Password
                 TextFormField(
                   controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: _obscureConfirmPassword,
+                  decoration: InputDecoration(
                     labelText: 'Confirm Password',
-                    prefixIcon: Icon(Icons.lock_outline, color: Colors.black54),
+                    prefixIcon: const Icon(Icons.lock_outline, color: Colors.black54),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.black54,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {

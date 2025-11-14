@@ -18,6 +18,7 @@ import '../../notifications/providers/notification_provider.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../constitution/screens/constitution_screen.dart';
 import '../../../core/utils/constants.dart';
+import '../../../core/services/fcm_service.dart';
 import '../../profile/widgets/subscription_list_tile.dart';
 import '../providers/posts_provider.dart';
 import '../../polls/screens/polls_list_screen.dart';
@@ -45,10 +46,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // Load notification count for badge
+    // Load user data and notifications after screen is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Load user data (if not already loaded)
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      authProvider.loadUser();
+
+      // Load notification count for badge
       final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
       notificationProvider.loadUnreadCount();
+
+      // Register FCM token in background
+      _registerFcmToken(authProvider);
     });
 
     _pages = [
@@ -58,6 +67,15 @@ class _HomeScreenState extends State<HomeScreen> {
       const ConstitutionScreen(), // Constitution
       const ChatScreen(), // Dvove AI
     ];
+  }
+
+  Future<void> _registerFcmToken(AuthProvider authProvider) async {
+    try {
+      final fcmService = FcmService.instance;
+      await fcmService.registerToken(authProvider);
+    } catch (e) {
+      // Silent fail - FCM registration is not critical
+    }
   }
 
   Future<void> _createNewConversation() async {
@@ -176,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 )
                               : _selectedIndex == 2
                                   ? const Text(
-                                      'Dvove Jobs',
+                                      'Dvove. Jobs',
                                       style: TextStyle(
                                         fontFamily: 'Chirp',
                                         fontSize: 21,
@@ -185,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     )
                                   : const Text(
-                                      'Dvove',
+                                      'Dvove.',
                                       style: TextStyle(
                                         fontFamily: 'Chirp',
                                         fontSize: 21,

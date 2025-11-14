@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../../posts/screens/home_screen.dart';
+import '../../posts/providers/posts_provider.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../core/services/fcm_service.dart';
@@ -17,7 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -40,6 +41,14 @@ class _LoginScreenState extends State<LoginScreen> {
         await FcmService.instance.registerToken(authProvider);
 
         if (!mounted) return;
+
+        // Prefetch posts before navigation for better UX
+        // Don't await - let it load in background
+        final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+        postsProvider.initializeFeed(
+          countyId: authProvider.user?.countyId,
+          type: null, // Home feed (all posts except jobs)
+        );
 
         Navigator.pushReplacement(
           context,
@@ -110,10 +119,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
                     labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock, color: Colors.black54),
+                    prefixIcon: const Icon(Icons.lock, color: Colors.black54),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.black54,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {

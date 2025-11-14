@@ -1,15 +1,14 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import '../providers/auth_provider.dart';
-import 'login_screen.dart';
-import '../../posts/screens/home_screen.dart';
+import '../../../firebase_options.dart';
+import '../../../core/storage/secure_storage.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../core/services/intelligent_cache_service.dart';
-import '../../../firebase_options.dart';
 import '../../../main.dart';
+import 'login_screen.dart';
+import '../../posts/screens/home_screen.dart';
 
+/// SIMPLE splash screen - just check token and navigate
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -21,36 +20,27 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeApp();
+    _checkAuthAndNavigate();
   }
 
-  Future<void> _initializeApp() async {
-    // Initialize Firebase
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  Future<void> _checkAuthAndNavigate() async {
+    // Step 1: Initialize Firebase (required, ~500ms)
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-    if (!mounted) return;
-
-    // Initialize FCM with navigator key and cache service (non-blocking)
-    await FcmService.instance.initialize(navigatorKey: navigatorKey);
+    // Step 2: Start background services (don't wait)
+    FcmService.instance.initialize(navigatorKey: navigatorKey);
     IntelligentCacheService.instance.initialize();
 
-    if (!mounted) return;
-
-    // Check authentication status
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.initializeAuth();
+    // Step 3: Check if we have a token (one simple check)
+    final storage = SecureStorage();
+    final hasToken = await storage.hasToken();
 
     if (!mounted) return;
 
-    // Register FCM token if user is already authenticated
-    if (authProvider.isAuthenticated) {
-      await FcmService.instance.registerToken(authProvider);
-    }
-
-    if (!mounted) return;
-
-    // Navigate based on auth status
-    if (authProvider.isAuthenticated) {
+    // Step 4: Navigate based on token existence
+    if (hasToken) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),

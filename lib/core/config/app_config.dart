@@ -55,9 +55,9 @@ class AppConfig {
   static const bool enableDebugLogging = isDevelopment;
   static const bool enableCrashReporting = isProduction;
 
-  // Timeouts - Single configuration for all requests
-  static const Duration connectionTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 120);
+  // Timeouts - Reasonable for mobile network conditions
+  static const Duration connectionTimeout = Duration(seconds: 10);
+  static const Duration receiveTimeout = Duration(seconds: 30);
 
   // Cache Settings
   static const Duration cacheMaxAge = Duration(hours: 1);

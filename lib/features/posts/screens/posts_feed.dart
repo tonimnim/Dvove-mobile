@@ -132,43 +132,7 @@ class _PostsFeedState extends State<PostsFeed> with AutomaticKeepAliveClientMixi
           return _buildEmptyState();
         }
 
-        // Refreshing state (has cached posts but loading new ones)
-        if (postsProvider.isLoading && displayPosts.isNotEmpty) {
-          return Stack(
-            children: [
-              // Show cached posts in background
-              Container(
-                color: Colors.grey.shade100,
-                child: ListView.builder(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: displayPosts.length,
-                  itemBuilder: (context, index) {
-                    final post = displayPosts[index];
-                    if (post.isAd) {
-                      final trackingContext = widget.postType == 'job' ? 'job' : 'home';
-                      return AdTrackableWidget(
-                        adId: post.id,
-                        context: trackingContext,
-                        clickUrl: post.clickUrl,
-                        child: PostCard(post: post),
-                      );
-                    }
-                    return PostCard(key: ValueKey(post.id), post: post);
-                  },
-                ),
-              ),
-              // Show shimmer overlay
-              Container(
-                color: Colors.grey.shade100.withOpacity(0.8),
-                child: _buildShimmerLoading(),
-              ),
-            ],
-          );
-        }
-
-        // Posts list with pull to refresh
+        // Posts list with pull to refresh (RefreshIndicator handles the spinner)
         return Container(
           color: Colors.grey.shade100,
           child: RefreshIndicator(

@@ -71,7 +71,11 @@ class PostsProvider extends ChangeNotifier {
     return feedPosts;
   }
 
-  bool get isLoading => _isLoading;
+  // Check per-feed loading state for current feed
+  bool get isLoading {
+    final key = _getFeedKey(_currentType);
+    return _isLoadingByType[key] ?? _isLoading;
+  }
   bool get isRefreshing => _isRefreshing;
   bool get hasMoreData => _hasMoreByType[_getFeedKey(_currentType)] ?? true;
   String? get errorMessage => _errorMessage;

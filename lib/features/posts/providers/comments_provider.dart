@@ -10,12 +10,21 @@ class CommentsProvider extends ChangeNotifier {
   final Set<String> _subscribedChannels = {};
   final Set<String> _loadedPostIds = {};
   final Map<int, bool> _votingInProgress = {}; // Lock to prevent concurrent votes
+  final Map<int, DateTime> _recentUserVotes = {}; // Track user's recent votes to filter websocket echoes
 
   CommentsProvider({PostsService? postsService})
       : _postsService = postsService ?? PostsService();
 
   List<Comment> getComments(String postId) {
     return _commentsByPostId[postId] ?? [];
+  }
+
+  // Helper: Check if vote data actually changed (prevent redundant updates)
+  bool _hasVoteChanged(Comment oldComment, int newScore, int? newUpvotes, int? newDownvotes, String? newUserVote) {
+    return oldComment.score != newScore ||
+           oldComment.upvotesCount != newUpvotes ||
+           oldComment.downvotesCount != newDownvotes ||
+           oldComment.userVote != newUserVote;
   }
 
   Comment? getComment(String postId, int commentId) {
@@ -153,8 +162,20 @@ class CommentsProvider extends ChangeNotifier {
           return;
         }
 
+        // Ignore if currently voting on this comment
         if (_votingInProgress[commentId] == true) {
           return;
+        }
+
+        // Filter websocket echoes: Ignore if this is the user's own recent vote
+        if (_recentUserVotes.containsKey(commentId)) {
+          final timeSinceVote = DateTime.now().difference(_recentUserVotes[commentId]!);
+          if (timeSinceVote.inSeconds < 3) {
+            // This is an echo of the user's own vote within last 3 seconds - ignore it
+            return;
+          }
+          // Cleanup old entry if more than 3 seconds have passed
+          _recentUserVotes.remove(commentId);
         }
 
         final comments = _commentsByPostId[postId];
@@ -164,12 +185,17 @@ class CommentsProvider extends ChangeNotifier {
 
         final index = comments.indexWhere((c) => c.id == commentId);
         if (index != -1) {
-          _commentsByPostId[postId]![index] = comments[index].copyWith(
-            score: score,
-            upvotesCount: upvotesCount,
-            downvotesCount: downvotesCount,
-          );
-          notifyListeners();
+          final currentComment = comments[index];
+
+          // Only update if values actually changed
+          if (_hasVoteChanged(currentComment, score, upvotesCount, downvotesCount, currentComment.userVote)) {
+            _commentsByPostId[postId]![index] = currentComment.copyWith(
+              score: score,
+              upvotesCount: upvotesCount,
+              downvotesCount: downvotesCount,
+            );
+            notifyListeners();
+          }
         }
       } catch (e) {
         // Error parsing comment event
@@ -205,6 +231,7 @@ class CommentsProvider extends ChangeNotifier {
     }
 
     _votingInProgress[commentId] = true;
+    _recentUserVotes[commentId] = DateTime.now(); // Track this vote
 
     final comment = comments[index];
     final currentScore = comment.score;
@@ -250,25 +277,36 @@ class CommentsProvider extends ChangeNotifier {
         final serverScore = result['score'];
         final serverUpvotesCount = result['upvotes_count'];
         final serverDownvotesCount = result['downvotes_count'];
+
+        // Determine userVote from action with fallback to optimistic value
         String? serverUserVote;
         if (action == 'upvoted') {
           serverUserVote = 'upvote';
         } else if (action == 'removed') {
           serverUserVote = null;
+        } else {
+          // Unknown action - keep optimistic value
+          serverUserVote = newUserVote;
         }
 
-        _commentsByPostId[postId]![index] = comment.copyWith(
-          score: serverScore,
-          upvotesCount: serverUpvotesCount,
-          downvotesCount: serverDownvotesCount,
-          userVote: serverUserVote,
-        );
-        notifyListeners();
+        // Only update if values changed from current state
+        final currentComment = _commentsByPostId[postId]![index];
+        if (_hasVoteChanged(currentComment, serverScore, serverUpvotesCount, serverDownvotesCount, serverUserVote)) {
+          _commentsByPostId[postId]![index] = currentComment.copyWith(
+            score: serverScore,
+            upvotesCount: serverUpvotesCount,
+            downvotesCount: serverDownvotesCount,
+            userVote: serverUserVote,
+          );
+          notifyListeners();
+        }
       } else {
+        // Rollback on failure
         _commentsByPostId[postId]![index] = comment;
         notifyListeners();
       }
     } catch (e) {
+      // Rollback on error
       _commentsByPostId[postId]![index] = comment;
       notifyListeners();
     } finally {
@@ -292,6 +330,7 @@ class CommentsProvider extends ChangeNotifier {
     }
 
     _votingInProgress[commentId] = true;
+    _recentUserVotes[commentId] = DateTime.now(); // Track this vote
 
     final comment = comments[index];
     final currentScore = comment.score;
@@ -337,25 +376,36 @@ class CommentsProvider extends ChangeNotifier {
         final serverScore = result['score'];
         final serverUpvotesCount = result['upvotes_count'];
         final serverDownvotesCount = result['downvotes_count'];
+
+        // Determine userVote from action with fallback to optimistic value
         String? serverUserVote;
         if (action == 'downvoted') {
           serverUserVote = 'downvote';
         } else if (action == 'removed') {
           serverUserVote = null;
+        } else {
+          // Unknown action - keep optimistic value
+          serverUserVote = newUserVote;
         }
 
-        _commentsByPostId[postId]![index] = comment.copyWith(
-          score: serverScore,
-          upvotesCount: serverUpvotesCount,
-          downvotesCount: serverDownvotesCount,
-          userVote: serverUserVote,
-        );
-        notifyListeners();
+        // Only update if values changed from current state
+        final currentComment = _commentsByPostId[postId]![index];
+        if (_hasVoteChanged(currentComment, serverScore, serverUpvotesCount, serverDownvotesCount, serverUserVote)) {
+          _commentsByPostId[postId]![index] = currentComment.copyWith(
+            score: serverScore,
+            upvotesCount: serverUpvotesCount,
+            downvotesCount: serverDownvotesCount,
+            userVote: serverUserVote,
+          );
+          notifyListeners();
+        }
       } else {
+        // Rollback on failure
         _commentsByPostId[postId]![index] = comment;
         notifyListeners();
       }
     } catch (e) {
+      // Rollback on error
       _commentsByPostId[postId]![index] = comment;
       notifyListeners();
     } finally {

@@ -90,7 +90,7 @@ class Comment {
     int? score,
     int? upvotesCount,
     int? downvotesCount,
-    String? userVote,
+    Object? userVote = _undefined, // Use Object? with sentinel for explicit null
     String? itemType,
     String? adType,
     String? clickUrl,
@@ -107,7 +107,7 @@ class Comment {
       score: score ?? this.score,
       upvotesCount: upvotesCount ?? this.upvotesCount,
       downvotesCount: downvotesCount ?? this.downvotesCount,
-      userVote: userVote ?? this.userVote,
+      userVote: userVote == _undefined ? this.userVote : userVote as String?,
       itemType: itemType ?? this.itemType,
       adType: adType ?? this.adType,
       clickUrl: clickUrl ?? this.clickUrl,
@@ -159,6 +159,9 @@ class Comment {
     return '${months[createdAt.month - 1]} ${createdAt.day}, ${createdAt.year}';
   }
 }
+
+// Sentinel value for distinguishing between "not provided" and "explicitly null"
+const Object _undefined = Object();
 
 class CommentUser {
   final int id;
