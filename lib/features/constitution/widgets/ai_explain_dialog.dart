@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../../../core/utils/constants.dart';
 import '../models/constitution_article.dart';
 import '../services/constitution_service.dart';
@@ -372,12 +373,36 @@ class _AIExplainDialogState extends State<AIExplainDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  _aiResponse!,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade800,
-                    height: 1.6,
+                MarkdownBody(
+                  data: _aiResponse!,
+                  styleSheet: MarkdownStyleSheet(
+                    p: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey.shade800,
+                      height: 1.6,
+                    ),
+                    h1: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade900,
+                    ),
+                    h2: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade900,
+                    ),
+                    h3: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
+                    listBullet: TextStyle(
+                      fontSize: 15,
+                      color: AppColors.primary,
+                    ),
+                    strong: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
