@@ -100,15 +100,31 @@ class ChatService {
         throw Exception(response.data['message'] ?? 'Failed to get AI response');
       }
     } on DioException catch (e) {
+      // Use user-friendly error messages from backend
+      final errorData = e.response?.data;
+      if (errorData != null && errorData is Map<String, dynamic>) {
+        final userFriendlyMessage = errorData['user_friendly_message'];
+        if (userFriendlyMessage != null) {
+          throw Exception(userFriendlyMessage);
+        }
+      }
+
+      // Fallback to status-based messages
       if (e.response?.statusCode == 429) {
         throw Exception('Daily AI chat limit reached. Try again tomorrow.');
+      }
+      if (e.response?.statusCode == 503) {
+        throw Exception('AI service is temporarily busy. Please try again in a moment.');
       }
       if (e.type == DioExceptionType.receiveTimeout) {
         throw Exception('AI response took too long. Please try again.');
       }
-      throw Exception('Failed to send message: ${e.message}');
+      throw Exception('Unable to send message. Please try again.');
     } catch (e) {
-      throw Exception('Failed to send message: $e');
+      if (e.toString().contains('Exception:')) {
+        rethrow;
+      }
+      throw Exception('Unable to send message. Please try again.');
     }
   }
 

@@ -123,12 +123,19 @@ class _ChatScreenState extends State<ChatScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      // Extract clean error message (remove "Exception: " prefix)
+      String cleanMessage = e.toString().replaceAll('Exception: ', '');
+
+      // If still generic, use fallback
+      if (cleanMessage.isEmpty || cleanMessage == 'null') {
+        cleanMessage = "Currently unavailable. Check back later.";
+      }
+
       final errorMessage = ChatMessage(
         conversationId: _currentSessionId,
-        message: e.toString(),
+        message: cleanMessage,
         isUser: false,
         timestamp: DateTime.now(),
-        error: 'error',
       );
 
       setState(() {
@@ -245,12 +252,12 @@ class _ChatScreenState extends State<ChatScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: message.error != null ? Colors.red.shade100 : const Color(0xFF01775A).withOpacity(0.1),
+                color: const Color(0xFF01775A).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                message.error != null ? Icons.error_outline : Icons.smart_toy,
-                color: message.error != null ? Colors.red.shade600 : const Color(0xFF01775A),
+              child: const Icon(
+                Icons.smart_toy,
+                color: Color(0xFF01775A),
                 size: 16,
               ),
             ),
@@ -260,20 +267,13 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: message.isUser
-                    ? Colors.black
-                    : (message.error != null ? Colors.red.shade50 : Colors.white),
+                color: message.isUser ? Colors.black : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: message.error != null
-                    ? Border.all(color: Colors.red.shade200)
-                    : null,
               ),
               child: Text(
                 message.message,
                 style: TextStyle(
-                  color: message.isUser
-                      ? Colors.white
-                      : (message.error != null ? Colors.red.shade700 : Colors.black),
+                  color: message.isUser ? Colors.white : Colors.black,
                   fontSize: 16,
                 ),
               ),
