@@ -5,12 +5,13 @@ import 'features/notifications/providers/notification_provider.dart';
 import 'features/posts/providers/posts_provider.dart';
 import 'features/posts/providers/comments_provider.dart';
 import 'features/polls/providers/polls_provider.dart';
-import 'features/auth/screens/splash_screen.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/posts/screens/home_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
 import 'features/chat/screens/conversations_list_screen.dart';
 import 'features/constitution/screens/article_detail_screen.dart';
 import 'core/api/api_client.dart';
+import 'core/storage/secure_storage.dart';
 
 // Global navigator key for navigation from anywhere (e.g., API interceptors)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -29,32 +30,8 @@ void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Handle app lifecycle changes
-    // When app returns to foreground, websocket will auto-reconnect
-    // No action needed - Pusher handles reconnection automatically
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +115,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
           ),
         ),
-        home: const SplashScreen(),
+        home: const _InitialRoute(),
         routes: {
           '/chat': (context) => const ChatScreen(),
           '/conversations': (context) => const ConversationsListScreen(),
@@ -166,6 +143,47 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return null;
         },
       ),
+    );
+  }
+}
+
+/// Fast initial route - checks token and navigates immediately
+class _InitialRoute extends StatefulWidget {
+  const _InitialRoute();
+
+  @override
+  State<_InitialRoute> createState() => _InitialRouteState();
+}
+
+class _InitialRouteState extends State<_InitialRoute> {
+  @override
+  void initState() {
+    super.initState();
+    _navigateBasedOnAuth();
+  }
+
+  Future<void> _navigateBasedOnAuth() async {
+    // Quick token check - no heavy initialization
+    final storage = SecureStorage();
+    final hasToken = await storage.hasToken();
+
+    if (!mounted) return;
+
+    // Navigate immediately - Firebase will init in background on next screen
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => hasToken ? const HomeScreen() : const LoginScreen(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Empty white screen - matches Android launch background
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: SizedBox.shrink(),
     );
   }
 }

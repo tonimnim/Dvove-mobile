@@ -67,6 +67,10 @@ class NotificationProvider extends ChangeNotifier {
   /// Reset unread count to 0 (when marking all as read)
   void clearUnreadCount() {
     _unreadCount = 0;
+    // Also update meta to reflect the change in UI
+    if (_meta != null) {
+      _meta = _meta!.copyWith(unreadCount: 0);
+    }
     notifyListeners();
   }
 

@@ -1,17 +1,20 @@
 import 'dart:convert';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../../firebase_options.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Handle subscription refresh in background
-  if (message.data['action'] == 'refresh_subscription') {
-    // The next time user opens the app, auth will be refreshed
-    // Background refresh is handled by the foreground handler when app is opened
-  }
+  // Initialize Firebase for background handler (required for background operations)
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Background notifications are automatically shown by Firebase
+  // This handler is only for data processing
+  // The OS displays the notification if message.notification is present
 }
 
 class FcmService {
@@ -31,32 +34,25 @@ class FcmService {
 
     _navigatorKey = navigatorKey;
     _firebaseMessaging = FirebaseMessaging.instance;
-    _isInitialized = true;
 
-    // Setup listeners first (non-blocking)
+    // Setup listeners
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {});
 
-    // Check for initial message (quick, non-blocking)
+    // Initialize notifications (await to ensure channels are created before notifications arrive)
+    await _initializeLocalNotifications();
+    await _requestPermissions();
+
+    // Check for initial message
     _firebaseMessaging?.getInitialMessage().then((initialMessage) {
       if (initialMessage != null) {
         _handleNotificationTap(initialMessage);
       }
     });
 
-    // Initialize notifications in background (don't await)
-    _initializeInBackground();
-
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-    });
-  }
-
-  Future<void> _initializeInBackground() async {
-    // Initialize local notifications first (usually fast)
-    await _initializeLocalNotifications();
-    // Request permissions later (may require user interaction)
-    await _requestPermissions();
+    _isInitialized = true;
   }
 
   Future<void> _initializeLocalNotifications() async {
@@ -73,19 +69,31 @@ class FcmService {
       onDidReceiveNotificationResponse: _handleLocalNotificationTap,
     );
 
-    const androidChannel = AndroidNotificationChannel(
+    // High priority channel for alerts and important notifications
+    const highPriorityChannel = AndroidNotificationChannel(
       'default_channel',
-      'Default Channel',
-      description: 'Default notification channel for app notifications',
+      'Important Notifications',
+      description: 'Alerts and important updates',
       importance: Importance.high,
       playSound: true,
       enableVibration: true,
       showBadge: true,
     );
 
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
+    // Subtle channel for daily constitution articles (Instagram-style)
+    const dailyArticleChannel = AndroidNotificationChannel(
+      'constitution_daily',
+      'Daily Constitution Article',
+      description: 'Daily constitution article - subtle notification with sound',
+      importance: Importance.low,
+      playSound: true, // Uses system default notification sound
+      enableVibration: false, // No vibration for subtle experience
+      showBadge: true,
+    );
+
+    final android = _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(highPriorityChannel);
+    await android?.createNotificationChannel(dailyArticleChannel);
   }
 
   void _handleLocalNotificationTap(NotificationResponse response) {
@@ -126,24 +134,37 @@ class FcmService {
     // Show local notification for foreground messages
     final notification = message.notification;
     if (notification != null) {
+      // Determine channel and style based on notification type
+      final isConstitutionDaily = messageType == 'constitution_daily';
+
       await _localNotifications.show(
         notification.hashCode,
         notification.title,
         notification.body,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
-            'default_channel',
-            'Default Channel',
+            isConstitutionDaily ? 'constitution_daily' : 'default_channel',
+            isConstitutionDaily ? 'Daily Constitution Article' : 'Important Notifications',
+            channelDescription: isConstitutionDaily
+                ? 'Daily constitution article - subtle notification'
+                : 'Alerts and important updates',
             icon: '@drawable/ic_notification',
-            importance: Importance.high,
-            priority: Priority.high,
-            playSound: true,
-            enableVibration: true,
+            importance: isConstitutionDaily ? Importance.low : Importance.high,
+            priority: isConstitutionDaily ? Priority.low : Priority.high,
+            playSound: true, // Uses system default sound for all notifications
+            enableVibration: !isConstitutionDaily, // Vibration only for important notifications
+            onlyAlertOnce: isConstitutionDaily,
+            // BigTextStyle for expandable preview (Instagram-style)
+            styleInformation: BigTextStyleInformation(
+              notification.body ?? '',
+              contentTitle: notification.title,
+              summaryText: isConstitutionDaily ? 'Article of the Day' : null,
+            ),
           ),
           iOS: DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
-            presentSound: true,
+            presentSound: true, // Uses system default sound
           ),
         ),
         payload: jsonEncode(message.data),

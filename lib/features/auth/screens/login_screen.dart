@@ -6,6 +6,7 @@ import '../../posts/providers/posts_provider.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../core/services/fcm_service.dart';
+import '../../../core/services/app_initializer.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +20,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize Firebase and background services (non-blocking)
+    AppInitializer.initialize();
+  }
 
   @override
   void dispose() {

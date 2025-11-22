@@ -7,12 +7,10 @@ import '../../auth/providers/auth_provider.dart';
 
 class SubscriptionListTile extends StatefulWidget {
   final String phoneNumber;
-  final bool hasActiveSubscription;
 
   const SubscriptionListTile({
     super.key,
     required this.phoneNumber,
-    required this.hasActiveSubscription,
   });
 
   @override
@@ -234,7 +232,9 @@ class _SubscriptionListTileState extends State<SubscriptionListTile> {
 
   @override
   Widget build(BuildContext context) {
-    final isActive = widget.hasActiveSubscription;
+    // Listen to AuthProvider directly so UI updates when subscription status changes
+    final authProvider = Provider.of<AuthProvider>(context);
+    final isActive = authProvider.user?.hasActiveSubscription ?? false;
 
     return ListTile(
       leading: Icon(

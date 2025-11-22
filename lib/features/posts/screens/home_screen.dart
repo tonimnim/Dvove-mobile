@@ -19,6 +19,7 @@ import '../../notifications/screens/notifications_screen.dart';
 import '../../constitution/screens/constitution_screen.dart';
 import '../../../core/utils/constants.dart';
 import '../../../core/services/fcm_service.dart';
+import '../../../core/services/app_initializer.dart';
 import '../../profile/widgets/subscription_list_tile.dart';
 import '../providers/posts_provider.dart';
 import '../../polls/screens/polls_list_screen.dart';
@@ -37,14 +38,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late List<Widget> _pages;
 
-  // Static decorations to avoid rebuilding on every setState
+  // Static colors to avoid rebuilding on every setState
   static final _bottomNavBorderColor = Colors.grey.shade300;
   static final _bottomNavShadowColor = Colors.grey.withOpacity(0.1);
   static final _unselectedItemColor = Colors.grey.shade600;
+  static final _scaffoldBgColor = Colors.grey.shade100;
+  static final _headerBorderColor = Colors.grey.shade300;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize Firebase and background services (non-blocking)
+    AppInitializer.initialize();
 
     // Load user data and notifications after screen is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -95,19 +101,11 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<String> _getAppVersion() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    return packageInfo.version;
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Don't listen to auth changes for entire screen rebuild
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: _scaffoldBgColor,
       body: Column(
         children: [
           // Simple static header - no animations
@@ -118,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.white,
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.grey.shade300,
+                    color: _headerBorderColor,
                     width: 1.0,
                   ),
                 ),
@@ -340,196 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      drawer: Drawer(
-        backgroundColor: Colors.white,
-        child: SafeArea(
-          child: Consumer<AuthProvider>(
-            builder: (context, auth, child) {
-              final user = auth.user;
-              return Column(
-                children: [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              MemoryOptimizedAvatar(
-                                imageUrl: user?.profilePhoto,
-                                fallbackText: user?.displayName ?? 'U',
-                                size: 60, // radius 30 * 2 = 60
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                user?.displayName ?? 'User',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '@${user?.username ?? 'username'}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.person_outline, color: Colors.black),
-                          title: const Text('Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ProfileScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        if (user?.role == 'official' && user?.phoneNumber != null) ...[
-                          SubscriptionListTile(
-                            phoneNumber: user!.phoneNumber!,
-                            hasActiveSubscription: user.hasActiveSubscription,
-                          ),
-                        ],
-                    ListTile(
-                      leading: const Icon(Icons.share_outlined, color: Colors.black),
-                      title: const Text('Share App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Share.share('Check out Dvove - Your County Connection! Download now: https://play.google.com/store/apps/details?id=com.dvove.app');
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.star_border, color: Colors.black),
-                      title: const Text('Rate App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        final InAppReview inAppReview = InAppReview.instance;
-                        if (await inAppReview.isAvailable()) {
-                          inAppReview.requestReview();
-                        }
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.description_outlined, color: Colors.black),
-                      title: const Text('Terms of Use', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        final uri = Uri.parse('https://dvove.com/terms-of-use');
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black),
-                      title: const Text('Privacy Policy', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        final uri = Uri.parse('https://dvove.com/privacy-policy');
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.delete_outline, color: Colors.red),
-                      title: const Text('Delete Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red)),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Delete Account?'),
-                            content: const Text('This will permanently delete your account and all data. This action cannot be undone.'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (confirm == true && mounted) {
-                          final success = await authProvider.deleteAccount();
-                          if (success && mounted) {
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (_) => const LoginScreen()),
-                              (route) => false,
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Account deleted successfully')),
-                            );
-                          } else if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(authProvider.errorMessage ?? 'Failed to delete account'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                    Expanded(child: Container()),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.black),
-                      title: const Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      trailing: FutureBuilder<String>(
-                        future: _getAppVersion(),
-                        builder: (context, snapshot) {
-                          return Text(
-                            'v${snapshot.data ?? '...'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          );
-                        },
-                      ),
-                      onTap: () async {
-                        // Clear all provider caches
-                        final postsProvider = Provider.of<PostsProvider>(context, listen: false);
-                        final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
-
-                        await postsProvider.clearCache();
-                        notificationProvider.clearCache();
-                        await _chatService.clearCache();
-
-                        // Logout
-                        await authProvider.logout();
-
-                        if (mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                      const SizedBox(height: 20),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
+      drawer: _HomeDrawer(chatService: _chatService),
       floatingActionButton: Consumer<AuthProvider>(
         builder: (context, auth, child) {
           final canCreatePosts = auth.canCreatePosts;
@@ -621,5 +430,215 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
+/// Extracted drawer to prevent rebuilds on tab switches
+/// Only rebuilds when AuthProvider changes (user data updates)
+class _HomeDrawer extends StatelessWidget {
+  final ChatService chatService;
+
+  const _HomeDrawer({required this.chatService});
+
+  // Static colors
+  static final _usernameColor = Colors.grey.shade600;
+  static final _versionColor = Colors.grey.shade600;
+
+  Future<String> _getAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    return packageInfo.version;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Consumer<AuthProvider>(
+          builder: (context, auth, child) {
+            final user = auth.user;
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      MemoryOptimizedAvatar(
+                        imageUrl: user?.profilePhoto,
+                        fallbackText: user?.displayName ?? 'U',
+                        size: 60,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        user?.displayName ?? 'User',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '@${user?.username ?? 'username'}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: _usernameColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.person_outline, color: Colors.black),
+                  title: const Text('Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProfileScreen(),
+                      ),
+                    );
+                  },
+                ),
+                if (user?.role == 'official' && user?.phoneNumber != null)
+                  SubscriptionListTile(
+                    phoneNumber: user!.phoneNumber!,
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.share_outlined, color: Colors.black),
+                  title: const Text('Share App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Share.share('Check out Dvove - Your County Connection! Download now: https://play.google.com/store/apps/details?id=com.dvove.app');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.star_border, color: Colors.black),
+                  title: const Text('Rate App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final InAppReview inAppReview = InAppReview.instance;
+                    if (await inAppReview.isAvailable()) {
+                      inAppReview.requestReview();
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.description_outlined, color: Colors.black),
+                  title: const Text('Terms of Use', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final uri = Uri.parse('https://dvove.com/terms-of-use');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black),
+                  title: const Text('Privacy Policy', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final uri = Uri.parse('https://dvove.com/privacy-policy');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Delete Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Account?'),
+                        content: const Text('This will permanently delete your account and all data. This action cannot be undone.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      final success = await auth.deleteAccount();
+                      if (context.mounted) {
+                        if (success) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Account deleted successfully')),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(auth.errorMessage ?? 'Failed to delete account'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  },
+                ),
+                Expanded(child: Container()),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.black),
+                  title: const Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  trailing: FutureBuilder<String>(
+                    future: _getAppVersion(),
+                    builder: (context, snapshot) {
+                      return Text(
+                        'v${snapshot.data ?? '...'}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _versionColor,
+                        ),
+                      );
+                    },
+                  ),
+                  onTap: () async {
+                    // Clear all provider caches
+                    final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+                    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+
+                    await postsProvider.clearCache();
+                    notificationProvider.clearCache();
+                    await chatService.clearCache();
+
+                    // Logout
+                    await auth.logout();
+
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 }

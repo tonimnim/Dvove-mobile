@@ -113,6 +113,26 @@ class NotificationMeta {
       unreadCount: json['unread_count'] ?? 0,
     );
   }
+
+  NotificationMeta copyWith({
+    int? currentPage,
+    int? from,
+    int? lastPage,
+    int? perPage,
+    int? to,
+    int? total,
+    int? unreadCount,
+  }) {
+    return NotificationMeta(
+      currentPage: currentPage ?? this.currentPage,
+      from: from ?? this.from,
+      lastPage: lastPage ?? this.lastPage,
+      perPage: perPage ?? this.perPage,
+      to: to ?? this.to,
+      total: total ?? this.total,
+      unreadCount: unreadCount ?? this.unreadCount,
+    );
+  }
 }
 
 /// Response structure for notification API calls

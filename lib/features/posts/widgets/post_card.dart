@@ -157,7 +157,7 @@ class PostCard extends StatelessWidget {
 
           if (!post.isAd)
             Padding(
-              padding: const EdgeInsets.only(left: 12, right: 12, top: 6, bottom: 12),
+              padding: const EdgeInsets.only(left: 20, right: 12, top: 6, bottom: 12),
               child: Consumer2<PostsProvider, CommentsProvider>(
                 builder: (context, postsProvider, commentsProvider, child) {
                   final updatedPost = postsProvider.posts.firstWhere(
